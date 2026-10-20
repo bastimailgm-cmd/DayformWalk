@@ -1,0 +1,34 @@
+name: iPhone-Oberfläche prüfen
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/ios-preview.yml']
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: App für den iPhone-Simulator bauen
+        run: |
+          xcodebuild -project DayformWalk.xcodeproj -scheme DayformWalk -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/Simulator CODE_SIGNING_ALLOWED=NO build
+      - name: App starten und Oberfläche sichern
+        run: |
+          DEVICE=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for group in d["devices"].values() for x in group if "iPhone" in x["name"]))')
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl status_bar "$DEVICE" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
+          xcrun simctl install "$DEVICE" build/Simulator/Build/Products/Debug-iphonesimulator/DayformWalk.app
+          xcrun simctl launch "$DEVICE" app.dayform.walk.native
+          sleep 4
+          xcrun simctl io "$DEVICE" screenshot build/DayformWalk-iPhone.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DayformWalk-Oberflaeche
+          path: build/DayformWalk-iPhone.png
+          if-no-files-found: error
+          retention-days: 30
+
