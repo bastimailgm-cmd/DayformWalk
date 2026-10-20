@@ -1,0 +1,27 @@
+name: iPhone-App bauen
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'DayformWalk/**'
+      - 'DayformWalk.xcodeproj/**'
+      - 'Tests/**'
+      - 'scripts/**'
+      - '.github/workflows/ios-build.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Modelle prüfen und iPhone-App kompilieren
+        run: bash scripts/build-ipa.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DayformWalk-iPhone
+          path: build/DayformWalk-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30

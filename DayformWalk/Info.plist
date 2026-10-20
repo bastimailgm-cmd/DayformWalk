@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleDevelopmentRegion</key><string>de</string>
+<key>CFBundleDisplayName</key><string>Dayform Walk</string>
+<key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+<key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+<key>CFBundleName</key><string>$(PRODUCT_NAME)</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+<key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+<key>LSRequiresIPhoneOS</key><true/>
+<key>NSMotionUsageDescription</key><string>Dayform Walk liest die vom iPhone gezählten Schritte, die Tagesstrecke und die Schritte deiner Spaziergänge aus. So funktioniert die Erfassung auch in der Hosentasche.</string>
+<key>NSLocationWhenInUseUsageDescription</key><string>Dein genauer Standort wird benötigt, um die Route und die Strecke eines von dir gestarteten Spaziergangs aufzuzeichnen.</string>
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key><string>Während eines von dir gestarteten Spaziergangs soll die GPS-Route auch bei gesperrtem Bildschirm weiter aufgezeichnet werden. Bei Pause oder Beenden wird GPS abgeschaltet.</string>
+<key>UIBackgroundModes</key><array><string>location</string></array>
+<key>UIApplicationSceneManifest</key><dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>
+<key>UILaunchScreen</key><dict/>
+<key>UIRequiredDeviceCapabilities</key><array><string>arm64</string></array>
+<key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>
+<key>UIUserInterfaceStyle</key><string>Light</string>
+</dict></plist>
