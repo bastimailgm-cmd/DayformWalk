@@ -114,6 +114,7 @@ final class TravelExplorer: NSObject, ObservableObject, CLLocationManagerDelegat
     private var task: Task<Void, Never>?
     override init() { super.init(); manager.delegate = self; manager.desiredAccuracy = kCLLocationAccuracyBest; manager.distanceFilter = 10; manager.activityType = .fitness }
     var coordinate: TravelCoordinate? { fix.map { TravelCoordinate($0.coordinate) } }
+    var userAuthorized: Bool { [.authorizedWhenInUse, .authorizedAlways].contains(manager.authorizationStatus) }
     var fresh: Bool { guard let fix else { return false }; return (0...35).contains(fix.horizontalAccuracy) && abs(fix.timestamp.timeIntervalSinceNow) <= 20 && fix.speed <= 4.5 }
     func appear() {
         visible = true
@@ -127,15 +128,20 @@ final class TravelExplorer: NSObject, ObservableObject, CLLocationManagerDelegat
     func disappear() { visible = false; manager.stopUpdatingLocation(); task?.cancel(); task = nil; busy = false }
     private func updatePermission() {
         guard visible else { return }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--preview") { return }
+        #endif
         if [.authorizedWhenInUse, .authorizedAlways].contains(manager.authorizationStatus) { manager.startUpdatingLocation(); status = "Standort wird ermittelt …" }
         else { status = "Standort in den iPhone-Einstellungen erlauben. Für Belohnungen wird ein genauer Standort benötigt." }
     }
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) { updatePermission() }
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last, location.horizontalAccuracy >= 0 else { return }
-        fix = location; status = "GPS ±\(Int(location.horizontalAccuracy)) m · Fundstellen im Umkreis von 1,8 km"
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) { Task { @MainActor [weak self] in self?.updatePermission() } }
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        Task { @MainActor [weak self] in
+            guard let self, self.visible, let location = locations.last, location.horizontalAccuracy >= 0 else { return }
+            self.fix = location; self.status = "GPS ±\(Int(location.horizontalAccuracy)) m · Fundstellen im Umkreis von 1,8 km"
+        }
     }
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) { status = "GPS gerade nicht verfügbar. Versuche es unter freiem Himmel erneut." }
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) { Task { @MainActor [weak self] in self?.status = "GPS gerade nicht verfügbar. Versuche es unter freiem Himmel erneut." } }
     func run(_ action: @escaping @MainActor () async throws -> Void) {
         guard !busy else { return }; busy = true; error = nil
         task = Task { [weak self] in

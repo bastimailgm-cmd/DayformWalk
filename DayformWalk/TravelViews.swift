@@ -50,7 +50,7 @@ struct TravelMapView: View {
             }.padding(20)
         }.background(Color.walkPaper).navigationTitle("Entdecken").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .topBarTrailing) { NavigationLink { GroqSettingsView() } label: { Image(systemName: "sparkles") }.accessibilityLabel("KI-Einstellungen") } }
-        .onAppear { explorer.appear() }
+        .onAppear { explorer.appear(); if let coordinate = explorer.coordinate, !centered { centered = true; camera = .region(MKCoordinateRegion(center: coordinate.cl, latitudinalMeters: 1800, longitudinalMeters: 1800)) } }
         .onDisappear { explorer.disappear() }
         .onChange(of: phase) { _, phase in if phase == .active { explorer.appear() } else { explorer.disappear() } }
         .onChange(of: explorer.coordinate) { _, coordinate in if let coordinate, !centered { centered = true; camera = .region(MKCoordinateRegion(center: coordinate.cl, latitudinalMeters: 1800, longitudinalMeters: 1800)) } }
@@ -63,7 +63,7 @@ struct TravelMapView: View {
     private var map: some View {
         ZStack(alignment: .bottomLeading) {
             Map(position: $camera) {
-                UserAnnotation()
+                if explorer.userAuthorized { UserAnnotation() }
                 ForEach(mapPlaces) { place in
                     Annotation(place.name, coordinate: place.coordinate.cl) {
                         Button { explorer.selected = place } label: {
@@ -91,7 +91,11 @@ struct TravelMapView: View {
             Picker("Gehzeit inklusive Rückweg", selection: $minutes) { ForEach([10,20,40], id: \.self) { Text("\($0) Min").tag($0) } }.pickerStyle(.segmented)
             Picker("Bevorzugte Spiel-Fundart", selection: $material) { Text("Alle Funde").tag("all"); ForEach(TravelMaterial.allCases) { Text($0.name).tag($0.rawValue) } }
             Button { discover() } label: { Label(explorer.busy ? "Wird vorbereitet …" : "Umgebung erkunden", systemImage: "location.magnifyingglass").frame(maxWidth: .infinity) }.buttonStyle(AdventureActionStyle()).disabled(explorer.busy || !explorer.fresh)
-            if !explorer.fresh { Button("Standort aktivieren / aktualisieren") { explorer.appear() }; Text("Ein frisches GPS-Signal mit höchstens 35 m Ungenauigkeit wird benötigt.").font(.caption).foregroundStyle(.secondary) }
+            if !explorer.fresh {
+                Button("Standort aktivieren / aktualisieren") { explorer.appear() }
+                Button("iPhone-Einstellungen öffnen") { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } }.font(.caption)
+                Text("Ein frisches GPS-Signal mit höchstens 35 m Ungenauigkeit wird benötigt.").font(.caption).foregroundStyle(.secondary)
+            }
             if explorer.busy { ProgressView(explorer.status).font(.caption).tint(.walkGreen) }
             if model.travel.loadedAt != nil { Text("Orte zwischengespeichert · maximal 24 Stunden gültig. Erneute Suche frühestens nach 2 Minuten oder bei Ortswechsel.").font(.caption2).foregroundStyle(.secondary) }
             Button { createPlan(ai: false) } label: { Label("Runde mit Rückweg planen", systemImage: "point.topleft.down.to.point.bottomright.curvepath").frame(maxWidth: .infinity) }.buttonStyle(AdventureActionStyle()).disabled(explorer.busy || !explorer.fresh || candidates.isEmpty)
