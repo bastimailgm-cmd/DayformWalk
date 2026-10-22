@@ -143,3 +143,14 @@ lateDataStory.team = TeamProject(code: "ABCD2345", baseline: 13000, contribution
 lateDataStory.sync(total: 24000, days: [yesterdayKey: 20000, todayKey: 4000])
 expect(lateDataStory.team?.contributions[lateDataStory.deviceID] == 1000, "Historische Nachladungen erhöhen keinen Team-Beitrag")
 print("Zeitgrenzen geprüft: historische Nachladungen zählen nicht als neue Expedition- oder Team-Schritte.")
+
+var fullTeamStory = AdventureProgress()
+let originalMember = fullTeamStory.deviceID
+var members = [originalMember: 100]
+for _ in 0..<19 { members[UUID().uuidString] = 100 }
+fullTeamStory.team = TeamProject(code: "ABCD2345", baseline: 0, contributions: members)
+fullTeamStory.prepareForRestore(total: 9000, days: [todayKey: 9000], now: start)
+expect(fullTeamStory.deviceID == originalMember && fullTeamStory.team?.contributions.count == 20 && fullTeamStory.isValid, "Volles Freundesprojekt bleibt nach Backup-Wiederherstellung gültig")
+var restoredStory = adventure
+restoredStory.prepareForRestore(total: 9000, days: [todayKey: 9000], now: start)
+expect(restoredStory.deviceID != adventure.deviceID && restoredStory.team?.contributions[restoredStory.deviceID] == 0 && restoredStory.isValid, "Neuer Teilnehmer nach Restore zählt vorhandene Schritte nicht erneut")

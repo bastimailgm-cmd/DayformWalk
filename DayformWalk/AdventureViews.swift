@@ -116,7 +116,8 @@ struct LivingIslandView: View {
             return SceneObject(id: key, symbol: IslandBuilding.all[index].symbol, color: .walkLime, x: position[0], y: position[1])
         }
         let items = model.adventure.placed.filter { $0.region == region.id }.map { SceneObject(id: $0.id.uuidString, symbol: WorldItem.item($0.kind)?.symbol ?? "leaf", color: $0.kind == "fire" ? .orange : .walkGreen, x: $0.x, y: $0.y) }
-        return buildings + items
+        let monument = model.adventure.team?.claimed == true ? [SceneObject(id: region.id + "/team-beacon", symbol: "light.beacon.max.fill", color: .orange, x: 0.78, y: 0.39)] : []
+        return buildings + items + monument
     }
     var body: some View {
         GeometryReader { proxy in

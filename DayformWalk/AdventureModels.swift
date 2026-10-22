@@ -200,6 +200,18 @@ struct AdventureProgress: Codable, Equatable {
         guard let item = placed.first(where: { $0.id == id }) else { return }
         placed.removeAll { $0.id == id }; inventory[item.kind, default: 0] += 1
     }
+    mutating func prepareForRestore(total: Int, days: [String: Int], now: Date) {
+        // A full project's existing membership must survive restoring a backup;
+        // inserting a 21st member would make an otherwise valid archive unreadable.
+        guard (team?.contributions.count ?? 0) < 20 else { return }
+        deviceID = UUID().uuidString
+        if team != nil {
+            team?.baseline = total
+            team?.joinedDay = IslandProgress.key(now)
+            team?.baselineByDay = days
+            team?.contributions[deviceID] = 0
+        }
+    }
 }
 
 struct MuseumBadge: Identifiable {

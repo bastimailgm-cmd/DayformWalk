@@ -452,18 +452,12 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
         restoredGame.sync(days: restored.days, goal: restored.preferences.dailyGoal)
         restored.game = restoredGame
         if var adventure = restored.adventure {
-            adventure.deviceID = UUID().uuidString
-            if adventure.team != nil {
-                adventure.team?.baseline = restoredGame.totalSteps
-                adventure.team?.joinedDay = IslandProgress.key(Date())
-                adventure.team?.baselineByDay = restoredGame.stepsByDay
-                adventure.team?.contributions[adventure.deviceID] = 0
-            }
+            adventure.prepareForRestore(total: restoredGame.totalSteps, days: restoredGame.stepsByDay, now: Date())
             restored.adventure = adventure
         }
         for index in restored.walks.indices where restored.walks[index].status == .recording { restored.walks[index].pause(at: restored.walks[index].checkpoint, reason: "Aus Backup wiederhergestellt") }
         guard let persistence else { throw UserError.storageUnavailable }
-        try persistence.save(restored)
+        try persistence.save(try restored.validated())
         archive = restored
         syncIsland()
         storageHealthy = true
