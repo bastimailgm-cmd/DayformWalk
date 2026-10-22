@@ -108,6 +108,9 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
 
     func becameActive() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--preview") { return }
+        #endif
         updateAuthorizationFlags()
         if motionAuthorized {
             refreshMotion()
@@ -344,6 +347,9 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     func restore(_ data: Data) throws {
         guard activeWalk == nil else { throw UserError.finishFirst }
         var restored = try Persistence.decode(data)
+        var restoredGame = restored.game ?? IslandProgress()
+        restoredGame.sync(days: restored.days, goal: restored.preferences.dailyGoal)
+        restored.game = restoredGame
         for index in restored.walks.indices where restored.walks[index].status == .recording { restored.walks[index].pause(at: restored.walks[index].checkpoint, reason: "Aus Backup wiederhergestellt") }
         guard let persistence else { throw UserError.storageUnavailable }
         try persistence.save(restored)

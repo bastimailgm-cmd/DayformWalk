@@ -1,5 +1,19 @@
 # Dayform Walk – native iPhone-App
 
+## Version 2.0: Deine Schritte. Deine Insel.
+
+Neue dunkle SwiftUI-Oberfläche mit nativen Material-Karten, mintfarbenem Fortschrittsring und eigener Inselansicht. Die Insel und Lumi sind direkt in SwiftUI gezeichnet, ohne externe Bilder, Netzwerkdienste oder KI-Key.
+
+- Je 100 erfasste Tages-Schritte gibt es eine Muschel; Restschritte zählen über Tage hinweg weiter. Schritte aus Spaziergängen werden nicht zusätzlich auf dieselben Tages-Schritte gerechnet.
+- Lumi steigt alle 5.000 Schritte ein Level auf und verändert sich auf Level 3 und 7.
+- Fünf nacheinander baubare Orte: Basislager (30), Garten (60), Brücke (100), Hütte (150), Sternenwarte (220 Muscheln).
+- Tägliche Missionen: 1.000 Schritte (+10), persönliches Tagesziel (+25), gespeicherter Spaziergang ab fünf Minuten (+15). Belohnungen werden bewusst abgeholt, höchstens einmal je Mission und Tag.
+- Das Ziel einer Tagesmission bleibt beim ersten Schritteintrag für diesen Tag fest. Nachträgliches Absenken des Ziels erzeugt keine zusätzlichen Belohnungen. Pausen kosten keinen Fortschritt; es gibt keine verlorenen Serien.
+- Historisch im Journal gespeicherte Schritte werden beim Update berücksichtigt. Mehrfaches Öffnen, Nachladen oder erneute identische Core-Motion-Abfragen erzeugen keine doppelten Schritt-Belohnungen.
+- Spielstand und Käufe sind Teil des JSON-Backups. Alte Backups ohne Spielstand bleiben importierbar. Deinstallation entfernt lokale Daten: vor dem Update sichern und mit derselben Apple-ID über die bestehende App installieren.
+
+Die Simulator-Prüfung nutzt nur im Debug-Build ausdrücklich gestartete Vorschau-Daten (`--preview`, optional `--island`). Der ausgelieferte Release-Build enthält diesen Modus nicht. Simulatorbilder sind Design-Vorschauen mit Beispieldaten und kein Messnachweis.
+
 Deutschsprachige SwiftUI-App für iPhone ab iOS 17. System-Schritte aus Apple Core Motion, GPS-Spaziergänge mit Hintergrundaufzeichnung, Apple-Maps-Routen, Pause/Fortsetzen/Beenden, aktive Zeit, Strecke, Tempo, Sieben-Tage-Verlauf, Notizen, GPX-Export und JSON-Backup. Kein API-Key, kein HealthKit-Entitlement, kein eigenes Backend.
 
 ## Windows + iPhone: der Installationsweg
