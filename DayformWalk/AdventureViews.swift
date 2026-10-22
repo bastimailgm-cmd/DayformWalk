@@ -309,9 +309,9 @@ struct ExpeditionStatus: View {
     var body: some View {
         Panel {
             Label("Deine Expedition läuft", systemImage: "safari.fill").font(.headline)
-            ProgressView(value: Double(trip.progress(total: model.island.totalSteps)) / Double(trip.target)).tint(.walkGreen)
-            Text("\(trip.progress(total: model.island.totalSteps).formatted()) / \(trip.target.formatted()) Schritte · +\(trip.reward) Muscheln").font(.caption).foregroundStyle(.secondary)
-            if trip.progress(total: model.island.totalSteps) >= trip.target { MainButton(title: "Expedition abschließen", symbol: "checkmark.seal.fill", action: model.claimExpedition) }
+            ProgressView(value: Double(trip.progress(total: model.island.totalSteps, days: model.island.stepsByDay)) / Double(trip.target)).tint(.walkGreen)
+            Text("\(trip.progress(total: model.island.totalSteps, days: model.island.stepsByDay).formatted()) / \(trip.target.formatted()) Schritte · +\(trip.reward) Muscheln").font(.caption).foregroundStyle(.secondary)
+            if trip.progress(total: model.island.totalSteps, days: model.island.stepsByDay) >= trip.target { MainButton(title: "Expedition abschließen", symbol: "checkmark.seal.fill", action: model.claimExpedition) }
         }
     }
 }

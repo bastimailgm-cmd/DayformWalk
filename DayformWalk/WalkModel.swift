@@ -45,7 +45,7 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     func changeAdventure(_ action: (inout AdventureProgress, inout IslandProgress) -> Void) {
         guard storageHealthy else { return }
         var story = adventure, game = island
-        story.sync(total: game.totalSteps)
+        story.sync(total: game.totalSteps, days: game.stepsByDay)
         action(&story, &game)
         for badge in MuseumBadge.all(game: game, adventure: story, walks: archive.walks) where badge.earned { story.earnedBadges.insert(badge.id) }
         guard story.isValid, game.isValid else { errorMessage = "Diese Änderung konnte nicht gespeichert werden."; return }
@@ -57,8 +57,24 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     func chooseBuddy(_ id: String) { changeAdventure { story, _ in if story.buddies.contains(id) { story.selectedBuddy = id } } }
     func chooseRegion(_ id: String) { changeAdventure { story, game in if let region = IslandRegion.all.first(where: { $0.id == id }), game.totalSteps >= region.steps { story.region = id } } }
     func claimChapter(_ id: String) { changeAdventure { story, game in _ = story.claimChapter(id, total: game.totalSteps, walks: completedWalks.count) } }
-    func beginExpedition(_ target: Int) { changeAdventure { story, game in _ = story.startExpedition(target: target, total: game.totalSteps, now: now) } }
-    func claimExpedition() { changeAdventure { story, game in if let reward = story.claimExpedition(total: game.totalSteps, now: now) { game.bonus += reward } } }
+    private func captureStepBaseline(_ completion: @escaping ([String: Int], Date) -> Void) {
+        guard motionAuthorized else { errorMessage = "Aktiviere zuerst Bewegung & Fitness auf der Heute-Seite. So zählt das Abenteuer echte neue Schritte."; return }
+        let date = Date(), day = Calendar.current.startOfDay(for: Date())
+        query(from: day, to: date) { [weak self] data, _ in
+            guard let self else { return }
+            guard let data else { self.errorMessage = "Der aktuelle Schrittstand konnte nicht geladen werden. Bitte versuche es noch einmal."; return }
+            self.applyDay(data, date: day)
+            var baseline = self.island.stepsByDay
+            baseline[IslandProgress.key(date)] = max(0, data.numberOfSteps.intValue)
+            completion(baseline, date)
+        }
+    }
+    func beginExpedition(_ target: Int) {
+        captureStepBaseline { [weak self] days, date in
+            self?.changeAdventure { story, game in _ = story.startExpedition(target: target, total: game.totalSteps, now: date, days: days) }
+        }
+    }
+    func claimExpedition() { changeAdventure { story, game in if let reward = story.claimExpedition(total: game.totalSteps, now: now, days: game.stepsByDay) { game.bonus += reward } } }
     func cancelExpedition() { changeAdventure { story, _ in if story.expedition?.finishedAt == nil { story.expedition?.finishedAt = now } } }
     func buyDecoration(_ id: String) { changeAdventure { story, game in
         guard let item = WorldItem.item(id), game.shells >= item.cost else { return }
@@ -87,7 +103,10 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
         let cleaned = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         let project = TeamProject(code: cleaned, baseline: island.totalSteps, contributions: [adventure.deviceID: 0])
         guard project.isValid else { errorMessage = "Der Einladungscode besteht aus acht Buchstaben oder Ziffern (ohne I, O, 0 und 1)."; return }
-        changeAdventure { story, _ in story.team = project }
+        captureStepBaseline { [weak self] days, date in
+            guard let self, self.adventure.team == nil else { return }
+            self.changeAdventure { story, game in story.team = TeamProject(code: cleaned, baseline: game.totalSteps, contributions: [story.deviceID: 0], joinedDay: IslandProgress.key(date), baselineByDay: days) }
+        }
     }
     func createTeam() { joinTeam(String((0..<8).map { _ in "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".randomElement()! })) }
     func connectFriends() {
@@ -121,7 +140,7 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
         progress.sync(days: archive.days, goal: preferences.dailyGoal)
         archive.game = progress
         var story = adventure
-        story.sync(total: progress.totalSteps)
+        story.sync(total: progress.totalSteps, days: progress.stepsByDay)
         for badge in MuseumBadge.all(game: progress, adventure: story, walks: archive.walks) where badge.earned { story.earnedBadges.insert(badge.id) }
         archive.adventure = story
         friends.update(story.team)
@@ -434,7 +453,12 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
         restored.game = restoredGame
         if var adventure = restored.adventure {
             adventure.deviceID = UUID().uuidString
-            if adventure.team != nil { adventure.team?.baseline = restoredGame.totalSteps; adventure.team?.contributions[adventure.deviceID] = 0 }
+            if adventure.team != nil {
+                adventure.team?.baseline = restoredGame.totalSteps
+                adventure.team?.joinedDay = IslandProgress.key(Date())
+                adventure.team?.baselineByDay = restoredGame.stepsByDay
+                adventure.team?.contributions[adventure.deviceID] = 0
+            }
             restored.adventure = adventure
         }
         for index in restored.walks.indices where restored.walks[index].status == .recording { restored.walks[index].pause(at: restored.walks[index].checkpoint, reason: "Aus Backup wiederhergestellt") }

@@ -78,8 +78,16 @@ struct Expedition: Codable, Equatable {
     var baseline: Int
     var finishedAt: Date?
     var rewardClaimed = false
+    var baselineByDay: [String: Int]?
     var reward: Int { target / 100 }
-    func progress(total: Int) -> Int { min(target, max(0, total - baseline)) }
+    func progress(total: Int, days: [String: Int]? = nil) -> Int {
+        if let days, let baselineByDay {
+            let start = IslandProgress.key(startedAt)
+            let steps = days.filter { $0.key >= start }.reduce(0) { $0 + max(0, $1.value - (baselineByDay[$1.key] ?? 0)) }
+            return min(target, steps)
+        }
+        return min(target, max(0, total - baseline))
+    }
 }
 
 struct TeamProject: Codable, Equatable {
@@ -87,11 +95,13 @@ struct TeamProject: Codable, Equatable {
     var baseline: Int
     var contributions: [String: Int] = [:]
     var claimed = false
+    var joinedDay: String?
+    var baselineByDay: [String: Int]?
     static let target = 50_000
     var total: Int { contributions.values.reduce(0, +) }
     var isValid: Bool {
         code.count == 8 && code.allSatisfy { "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".contains($0) } &&
-        baseline >= 0 && contributions.count <= 20 && contributions.allSatisfy { UUID(uuidString: $0.key) != nil && (0...1_000_000_000).contains($0.value) }
+        baseline >= 0 && (baselineByDay?.count ?? 0) <= 100_000 && (baselineByDay?.values.allSatisfy { (0...1_000_000).contains($0) } ?? true) && contributions.count <= 20 && contributions.allSatisfy { UUID(uuidString: $0.key) != nil && (0...1_000_000_000).contains($0.value) }
     }
     mutating func merge(_ incoming: [String: Int], localID: String) {
         // A peer cannot overwrite this phone's own contribution.
@@ -138,14 +148,18 @@ struct AdventureProgress: Codable, Equatable {
     }
     private var expeditionValid: Bool {
         guard let expedition else { return true }
-        return [1000, 3000, 6000].contains(expedition.target) && expedition.baseline >= 0 && expedition.baseline <= seenSteps && expedition.startedAt.timeIntervalSince1970.isFinite && (expedition.finishedAt == nil || expedition.finishedAt! >= expedition.startedAt)
+        return [1000, 3000, 6000].contains(expedition.target) && (expedition.baselineByDay?.count ?? 0) <= 100_000 && (expedition.baselineByDay?.values.allSatisfy { (0...1_000_000).contains($0) } ?? true) && expedition.baseline >= 0 && expedition.baseline <= seenSteps && expedition.startedAt.timeIntervalSince1970.isFinite && (expedition.finishedAt == nil || expedition.finishedAt! >= expedition.startedAt)
     }
-    mutating func sync(total: Int) {
+    mutating func sync(total: Int, days: [String: Int]? = nil) {
         let delta = max(0, total - seenSteps)
         buddySteps[selectedBuddy, default: 0] += delta
         seenSteps = max(seenSteps, total)
         if var team {
-            team.contributions[deviceID] = max(team.contributions[deviceID] ?? 0, max(0, total - team.baseline))
+            var contribution = max(0, total - team.baseline)
+            if let days, let baseline = team.baselineByDay, let joined = team.joinedDay {
+                contribution = days.filter { $0.key >= joined }.reduce(0) { $0 + max(0, $1.value - (baseline[$1.key] ?? 0)) }
+            }
+            team.contributions[deviceID] = max(team.contributions[deviceID] ?? 0, contribution)
             self.team = team
         }
     }
@@ -168,12 +182,12 @@ struct AdventureProgress: Codable, Equatable {
         guard let chapter = StoryChapter.all.first(where: { !chapters.contains($0.id) }), chapter.id == id, total >= chapter.steps, walks >= chapter.walks else { return false }
         chapters.insert(id); inventory[chapter.gift, default: 0] += 1; return true
     }
-    mutating func startExpedition(target: Int, total: Int, now: Date) -> Bool {
+    mutating func startExpedition(target: Int, total: Int, now: Date, days: [String: Int]? = nil) -> Bool {
         guard [1000, 3000, 6000].contains(target), expedition == nil || expedition!.rewardClaimed || expedition!.finishedAt != nil else { return false }
-        expedition = Expedition(target: target, startedAt: now, baseline: total); return true
+        expedition = Expedition(target: target, startedAt: now, baseline: total, baselineByDay: days); return true
     }
-    mutating func claimExpedition(total: Int, now: Date) -> Int? {
-        guard var trip = expedition, trip.finishedAt == nil, !trip.rewardClaimed, trip.progress(total: total) == trip.target else { return nil }
+    mutating func claimExpedition(total: Int, now: Date, days: [String: Int]? = nil) -> Int? {
+        guard var trip = expedition, trip.finishedAt == nil, !trip.rewardClaimed, trip.progress(total: total, days: days) == trip.target else { return nil }
         trip.rewardClaimed = true; trip.finishedAt = now; expedition = trip; completedExpeditions += 1; return trip.reward
     }
     mutating func place(_ kind: String) -> Bool {
