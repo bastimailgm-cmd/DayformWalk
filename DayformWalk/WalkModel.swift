@@ -35,6 +35,23 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     var activeWalk: Walk? { archive.walks.first { $0.status != .finished } }
     var completedWalks: [Walk] { archive.walks.filter { $0.status == .finished }.sorted { $0.startedAt > $1.startedAt } }
     var preferences: Preferences { archive.preferences }
+    var island: IslandProgress { archive.game ?? IslandProgress() }
+    var missions: [IslandMission] { island.missions(on: now, walks: archive.walks) }
+    func buildIsland(_ id: String) {
+        guard storageHealthy else { return }
+        var progress = island
+        if progress.build(id) { archive.game = progress; save() }
+    }
+    func claimMission(_ id: String) {
+        guard storageHealthy else { return }
+        var progress = island
+        if progress.claim(id, on: now, walks: archive.walks) { archive.game = progress; save() }
+    }
+    private func syncIsland() {
+        var progress = island
+        progress.sync(days: archive.days, goal: preferences.dailyGoal)
+        archive.game = progress
+    }
     var stepCountingAvailable: Bool { CMPedometer.isStepCountingAvailable() }
 
     override init() {
@@ -43,6 +60,7 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
             let store = try Persistence()
             persistence = store
             archive = try store.load()
+            syncIsland()
             if let index = archive.walks.firstIndex(where: { $0.status == .recording }) {
                 let stop = max(archive.walks[index].checkpoint, archive.walks[index].intervals.last?.start ?? archive.walks[index].startedAt)
                 archive.walks[index].pause(at: stop, reason: "App neu gestartet: Aufzeichnung am letzten gesicherten Zeitpunkt pausiert. Fehlender Weg wurde nicht ergänzt.")
@@ -72,6 +90,21 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
             }
         }
         if motionAuthorized { refreshMotion() }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--preview") {
+            archive = Archive()
+            archive.days = (0..<7).map { offset in DaySteps(date: Calendar.current.date(byAdding: .day, value: -offset, to: Date())!, steps: offset == 0 ? 6240 : 5200 + offset * 700, distance: offset == 0 ? 4420 : 3900, floors: 6) }
+            todaySteps = 6240; todayDistance = 4420; todayFloors = 6
+            archive.preferences.name = "Alex"
+            syncIsland()
+            var progress = island
+            _ = progress.build("camp"); _ = progress.build("garden"); _ = progress.build("bridge")
+            archive.game = progress
+            storageHealthy = false // Preview is isolated from the saved journal.
+            motionAuthorized = true
+            if ProcessInfo.processInfo.arguments.contains("--island") { selectedTab = 4 }
+        }
+        #endif
     }
 
     func becameActive() {
@@ -151,6 +184,7 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
             todayDistance = day.distance
             todayFloors = day.floors
         }
+        syncIsland()
         save()
     }
 
@@ -314,6 +348,7 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
         guard let persistence else { throw UserError.storageUnavailable }
         try persistence.save(restored)
         archive = restored
+        syncIsland()
         storageHealthy = true
         becameActive()
     }

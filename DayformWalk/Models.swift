@@ -119,8 +119,10 @@ struct Archive: Codable {
     var preferences = Preferences()
     var walks: [Walk] = []
     var days: [DaySteps] = []
+    var game: IslandProgress?
 
     func validated() throws -> Archive {
+        if let game, !game.isValid { throw ValidationError.invalid }
         guard version == 1, (500...100_000).contains(preferences.dailyGoal), walks.count <= 10_000, Set(walks.map(\.id)).count == walks.count, walks.filter({ $0.status != .finished }).count <= 1 else { throw ValidationError.invalid }
         for walk in walks {
             guard walk.intervals.count <= 10_000, walk.segments.count <= 10_000, walk.points.count <= 200_000, walk.startedAt.timeIntervalSince1970.isFinite else { throw ValidationError.invalid }
@@ -133,6 +135,90 @@ struct Archive: Codable {
         return self
     }
     enum ValidationError: LocalizedError { case invalid; var errorDescription: String? { "Diese Datei ist kein gültiges Dayform-Walk-Backup." } }
+}
+
+struct IslandBuilding: Identifiable {
+    let id: String
+    let name: String
+    let detail: String
+    let symbol: String
+    let cost: Int
+    static let all: [IslandBuilding] = [
+        .init(id: "camp", name: "Dein Basislager", detail: "Ein Zuhause für dich und Lumi.", symbol: "tent.fill", cost: 30),
+        .init(id: "garden", name: "Wilder Garten", detail: "Ein grüner Rückzugsort am Wasser.", symbol: "leaf.fill", cost: 60),
+        .init(id: "bridge", name: "Die kleine Brücke", detail: "Verbinde die beiden Inselufer.", symbol: "point.topleft.down.to.point.bottomright.curvepath", cost: 100),
+        .init(id: "cabin", name: "Hütte am Meer", detail: "Dein nächster Lieblingsplatz.", symbol: "house.fill", cost: 150),
+        .init(id: "beacon", name: "Sternenwarte", detail: "Ein Licht für neue Abenteuer.", symbol: "sparkles", cost: 220)
+    ]
+}
+
+struct IslandProgress: Codable, Equatable {
+    var stepsByDay: [String: Int] = [:]
+    var goalByDay: [String: Int] = [:]
+    var claimed: Set<String> = []
+    var buildings: [String] = []
+    var bonus = 0
+    var spent = 0
+    static func key(_ date: Date, calendar: Calendar = .current) -> String {
+        let c = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
+    }
+    var totalSteps: Int { stepsByDay.values.reduce(0, +) }
+    var shells: Int { totalSteps / 100 + bonus - spent }
+    var level: Int { 1 + totalSteps / 5000 }
+    var levelProgress: Double { Double(totalSteps % 5000) / 5000 }
+    var companion: String { level < 3 ? "Kleiner Entdecker" : level < 7 ? "Waldgefährte" : "Inselhüter" }
+    var isValid: Bool {
+        stepsByDay.count <= 100_000 && goalByDay.count <= 100_000 && claimed.count <= 300_000 &&
+        stepsByDay.values.allSatisfy { (0...1_000_000).contains($0) } &&
+        goalByDay.values.allSatisfy { (500...100_000).contains($0) } &&
+        bonus >= 0 && bonus <= 100_000_000 && spent >= 0 && spent <= 100_000_000 && shells >= 0 &&
+        buildings == Array(IslandBuilding.all.map(\.id).prefix(buildings.count)) && buildings.count <= IslandBuilding.all.count
+    }
+    mutating func sync(days: [DaySteps], goal: Int) {
+        for day in days {
+            guard let steps = day.steps, (0...1_000_000).contains(steps) else { continue }
+            let key = Self.key(day.date)
+            stepsByDay[key] = max(stepsByDay[key] ?? 0, steps)
+            if goalByDay[key] == nil { goalByDay[key] = goal }
+        }
+    }
+    mutating func build(_ id: String) -> Bool {
+        guard buildings.count < IslandBuilding.all.count else { return false }
+        let next = IslandBuilding.all[buildings.count]
+        guard next.id == id, shells >= next.cost else { return false }
+        spent += next.cost
+        buildings.append(id)
+        return true
+    }
+    func missions(on date: Date, walks: [Walk]) -> [IslandMission] {
+        let key = Self.key(date)
+        let steps = stepsByDay[key] ?? 0
+        let goal = goalByDay[key] ?? 8000
+        let walkCount = walks.filter { $0.status == .finished && Self.key($0.finishedAt ?? $0.startedAt) == key && $0.activeDuration() >= 300 }.count
+        return [
+            IslandMission(id: key + "/steps", title: "Die erste Spur", detail: "1.000 Schritte sammeln", symbol: "shoeprints.fill", current: steps, target: 1000, reward: 10),
+            IslandMission(id: key + "/goal", title: "Dein eigener Rhythmus", detail: "Dein Tagesziel erreichen", symbol: "scope", current: steps, target: goal, reward: 25),
+            IslandMission(id: key + "/walk", title: "Frische Luft", detail: "Einen Spaziergang ab 5 Minuten speichern", symbol: "figure.walk", current: walkCount, target: 1, reward: 15)
+        ]
+    }
+    mutating func claim(_ id: String, on date: Date, walks: [Walk]) -> Bool {
+        guard !claimed.contains(id), let mission = missions(on: date, walks: walks).first(where: { $0.id == id }), mission.current >= mission.target else { return false }
+        bonus += mission.reward
+        claimed.insert(id)
+        return true
+    }
+}
+
+struct IslandMission: Identifiable {
+    var id: String
+    var title: String
+    var detail: String
+    var symbol: String
+    var current: Int
+    var target: Int
+    var reward: Int
+    var progress: Double { min(1, Double(current) / Double(max(1, target))) }
 }
 
 struct RouteFilter {

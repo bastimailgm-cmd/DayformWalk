@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['.github/workflows/ios-preview.yml']
+    paths: ['DayformWalk/**', '.github/workflows/ios-preview.yml']
 permissions:
   contents: read
 jobs:
@@ -22,13 +22,16 @@ jobs:
           xcrun simctl bootstatus "$DEVICE" -b
           xcrun simctl status_bar "$DEVICE" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
           xcrun simctl install "$DEVICE" build/Simulator/Build/Products/Debug-iphonesimulator/DayformWalk.app
-          xcrun simctl launch "$DEVICE" app.dayform.walk.native
+          xcrun simctl launch "$DEVICE" app.dayform.walk.native --preview
           sleep 4
           xcrun simctl io "$DEVICE" screenshot build/DayformWalk-iPhone.png
+          xcrun simctl terminate "$DEVICE" app.dayform.walk.native
+          xcrun simctl launch "$DEVICE" app.dayform.walk.native --preview --island
+          sleep 3
+          xcrun simctl io "$DEVICE" screenshot build/DayformWalk-Insel.png
       - uses: actions/upload-artifact@v4
         with:
           name: DayformWalk-Oberflaeche
-          path: build/DayformWalk-iPhone.png
+          path: build/DayformWalk-*.png
           if-no-files-found: error
           retention-days: 30
-
