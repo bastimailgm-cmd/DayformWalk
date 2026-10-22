@@ -59,8 +59,8 @@ struct TodayView: View {
                 Button { model.selectedTab = 4 } label: {
                     Panel {
                         HStack {
-                            VStack(alignment: .leading, spacing: 7) { Eyebrow(text: "Deine Schritte werden zur Welt"); Text("Willkommen auf deiner Insel.").font(.title3.bold()); Text("Lumi wartet auf dich · Level \(model.island.level)").font(.caption).foregroundStyle(.secondary) }
-                            Spacer(); CompanionView(level: model.island.level).frame(width: 68, height: 78)
+                            VStack(alignment: .leading, spacing: 7) { Eyebrow(text: "Deine Schritte werden zur Welt"); Text("Willkommen auf deiner Insel.").font(.title3.bold()); Text("\(model.buddy.name) wartet auf dich · Level \(model.buddyLevel)").font(.caption).foregroundStyle(.secondary) }
+                            Spacer(); BuddyPortrait(id: model.buddy.id, level: model.buddyLevel).frame(width: 68, height: 78)
                         }
                         HStack { Label("\(model.island.buildings.count)/5 Orte gebaut", systemImage: "leaf"); Spacer(); Image(systemName: "arrow.up.right") }.font(.caption.bold()).foregroundStyle(Color.walkGreen)
                     }
@@ -221,7 +221,7 @@ struct RootView: View {
     var body: some View {
         TabView(selection: $model.selectedTab) {
             NavigationStack { TodayView() }.tabItem { Label("Heute", systemImage: "sun.max") }.tag(0)
-            NavigationStack { IslandView() }.tabItem { Label("Insel", systemImage: "leaf.fill") }.tag(4)
+            NavigationStack { AdventureEntryView() }.tabItem { Label("Insel", systemImage: "leaf.fill") }.tag(4)
             NavigationStack { WalksView() }.tabItem { Label("Spaziergang", systemImage: "figure.walk") }.tag(1)
             NavigationStack { DevelopmentView() }.tabItem { Label("Verlauf", systemImage: "chart.bar.xaxis") }.tag(2)
             NavigationStack { SettingsView() }.tabItem { Label("Einstellungen", systemImage: "slider.horizontal.3") }.tag(3)
@@ -438,7 +438,7 @@ struct SettingsView: View {
                 Text("Die App benötigt keinen API-Key und keine bezahlte Apple-Developer-Mitgliedschaft. Bei kostenloser Signierung über AltStore läuft das Profil nach sieben Tagen ab. Rechtzeitig über AltServer erneuern und die App dabei nicht löschen, damit lokale Daten erhalten bleiben.").font(.footnote)
                 Link("AltStore Classic: Windows-Anleitung", destination: URL(string: "https://faq.altstore.io/altstore-classic/how-to-install-altstore-windows")!)
             }
-            Section { Text("Dayform Walk 2.0 · Deine Schritte. Deine Insel.").font(.footnote).foregroundStyle(.secondary) }
+            Section { Text("Dayform Walk 3.0 · Deine lebendige Abenteuerwelt.").font(.footnote).foregroundStyle(.secondary) }
         }.navigationTitle("Deine Einstellungen")
             .onAppear { name = model.preferences.name; goal = model.preferences.dailyGoal }
             .fileExporter(isPresented: $showExport, document: backupDocument, contentType: .json, defaultFilename: "Dayform-Walk-Backup") { result in if case .failure(let error) = result { model.errorMessage = error.localizedDescription } }

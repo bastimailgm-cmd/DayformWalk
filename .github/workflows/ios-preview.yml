@@ -29,6 +29,14 @@ jobs:
           xcrun simctl launch "$DEVICE" app.dayform.walk.native --preview --island
           sleep 3
           xcrun simctl io "$DEVICE" screenshot build/DayformWalk-Insel.png
+          xcrun simctl terminate "$DEVICE" app.dayform.walk.native
+          xcrun simctl launch "$DEVICE" app.dayform.walk.native --preview --island --editor
+          sleep 3
+          xcrun simctl io "$DEVICE" screenshot build/DayformWalk-Gestalten.png
+          xcrun simctl terminate "$DEVICE" app.dayform.walk.native
+          xcrun simctl launch "$DEVICE" app.dayform.walk.native --preview --island --backpack
+          sleep 3
+          xcrun simctl io "$DEVICE" screenshot build/DayformWalk-Rucksack.png
       - uses: actions/upload-artifact@v4
         with:
           name: DayformWalk-Oberflaeche

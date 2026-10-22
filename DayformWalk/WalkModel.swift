@@ -19,6 +19,7 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published private(set) var now = Date()
     @Published var errorMessage: String?
     @Published var selectedTab = 0
+    let friends = FriendsSync()
     private let manager = CLLocationManager()
     private let dayPedometer = CMPedometer()
     private let walkPedometer = CMPedometer()
@@ -36,6 +37,74 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     var completedWalks: [Walk] { archive.walks.filter { $0.status == .finished }.sorted { $0.startedAt > $1.startedAt } }
     var preferences: Preferences { archive.preferences }
     var island: IslandProgress { archive.game ?? IslandProgress() }
+    var adventure: AdventureProgress { archive.adventure ?? AdventureProgress() }
+    var buddy: IslandBuddy { IslandBuddy.all.first { $0.id == adventure.selectedBuddy } ?? IslandBuddy.all[0] }
+    var buddyLevel: Int { 1 + (adventure.buddySteps[buddy.id] ?? 0) / 5000 }
+    var weeklyStory: WeeklyStory { WeeklyStory(days: archive.days, walks: archive.walks, now: now) }
+    var museum: [MuseumBadge] { MuseumBadge.all(game: island, adventure: adventure, walks: archive.walks) }
+    func changeAdventure(_ action: (inout AdventureProgress, inout IslandProgress) -> Void) {
+        guard storageHealthy else { return }
+        var story = adventure, game = island
+        story.sync(total: game.totalSteps)
+        action(&story, &game)
+        for badge in MuseumBadge.all(game: game, adventure: story, walks: archive.walks) where badge.earned { story.earnedBadges.insert(badge.id) }
+        guard story.isValid, game.isValid else { errorMessage = "Diese Änderung konnte nicht gespeichert werden."; return }
+        archive.adventure = story; archive.game = game; save()
+        friends.update(story.team)
+    }
+    func openFind() { changeAdventure { story, game in if let reward = story.openFind(total: game.totalSteps) { game.bonus += reward } } }
+    func hatchBuddy(_ id: String) { changeAdventure { story, game in _ = story.hatch(id, total: game.totalSteps) } }
+    func chooseBuddy(_ id: String) { changeAdventure { story, _ in if story.buddies.contains(id) { story.selectedBuddy = id } } }
+    func chooseRegion(_ id: String) { changeAdventure { story, game in if let region = IslandRegion.all.first(where: { $0.id == id }), game.totalSteps >= region.steps { story.region = id } } }
+    func claimChapter(_ id: String) { changeAdventure { story, game in _ = story.claimChapter(id, total: game.totalSteps, walks: completedWalks.count) } }
+    func beginExpedition(_ target: Int) { changeAdventure { story, game in _ = story.startExpedition(target: target, total: game.totalSteps, now: now) } }
+    func claimExpedition() { changeAdventure { story, game in if let reward = story.claimExpedition(total: game.totalSteps, now: now) { game.bonus += reward } } }
+    func cancelExpedition() { changeAdventure { story, _ in if story.expedition?.finishedAt == nil { story.expedition?.finishedAt = now } } }
+    func buyDecoration(_ id: String) { changeAdventure { story, game in
+        guard let item = WorldItem.item(id), game.shells >= item.cost else { return }
+        game.spent += item.cost; story.inventory[id, default: 0] += 1
+    } }
+    func placeDecoration(_ id: String) { changeAdventure { story, _ in _ = story.place(id) } }
+    func removeDecoration(_ id: UUID) { changeAdventure { story, _ in story.remove(id) } }
+    func positionObject(_ id: String, x: Double, y: Double) { changeAdventure { story, _ in
+        guard x.isFinite, y.isFinite else { return }
+        let px = min(0.88, max(0.12, x)), py = min(0.76, max(0.32, y))
+        if let uuid = UUID(uuidString: id), let index = story.placed.firstIndex(where: { $0.id == uuid }) { story.placed[index].x = px; story.placed[index].y = py }
+        else { story.positions[id] = [px, py] }
+    } }
+    func buildRegion(_ id: String) { changeAdventure { story, game in
+        if story.region == "home" { _ = game.build(id); return }
+        guard let region = IslandRegion.all.first(where: { $0.id == story.region }), game.totalSteps >= region.steps else { return }
+        let count = story.regionBuildings[story.region, default: []].count
+        guard count < 5, IslandBuilding.all[count].id == id else { return }
+        let cost = IslandBuilding.all[count].cost * 2
+        guard game.shells >= cost else { return }
+        game.spent += cost; story.regionBuildings[story.region, default: []].append(id)
+    } }
+    func setAtmosphere(_ weather: String) { changeAdventure { story, _ in if ["clear", "rain", "mist", "snow"].contains(weather) { story.weather = weather } } }
+    func joinTeam(_ code: String) {
+        guard adventure.team == nil else { return }
+        let cleaned = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let project = TeamProject(code: cleaned, baseline: island.totalSteps, contributions: [adventure.deviceID: 0])
+        guard project.isValid else { errorMessage = "Der Einladungscode besteht aus acht Buchstaben oder Ziffern (ohne I, O, 0 und 1)."; return }
+        changeAdventure { story, _ in story.team = project }
+    }
+    func createTeam() { joinTeam(String((0..<8).map { _ in "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".randomElement()! })) }
+    func connectFriends() {
+        guard let team = adventure.team else { return }
+        friends.onReceive = { [weak self] message in
+            guard let self, var team = self.adventure.team, team.code == message.code else { return }
+            let previous = team.contributions
+            team.merge(message.contributions, localID: self.adventure.deviceID)
+            if team.contributions != previous { self.changeAdventure { story, _ in story.team = team } }
+        }
+        friends.start(code: team.code, contributions: team.contributions)
+    }
+    func leaveTeam() { friends.stop(); changeAdventure { story, _ in story.team = nil } }
+    func claimTeam() { changeAdventure { story, game in
+        guard var team = story.team, team.total >= TeamProject.target, !team.claimed else { return }
+        team.claimed = true; story.team = team; story.inventory["lamp", default: 0] += 1; game.bonus += 100
+    } }
     var missions: [IslandMission] { island.missions(on: now, walks: archive.walks) }
     func buildIsland(_ id: String) {
         guard storageHealthy else { return }
@@ -51,6 +120,11 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
         var progress = island
         progress.sync(days: archive.days, goal: preferences.dailyGoal)
         archive.game = progress
+        var story = adventure
+        story.sync(total: progress.totalSteps)
+        for badge in MuseumBadge.all(game: progress, adventure: story, walks: archive.walks) where badge.earned { story.earnedBadges.insert(badge.id) }
+        archive.adventure = story
+        friends.update(story.team)
     }
     var stepCountingAvailable: Bool { CMPedometer.isStepCountingAvailable() }
 
@@ -100,6 +174,13 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
             var progress = island
             _ = progress.build("camp"); _ = progress.build("garden"); _ = progress.build("bridge")
             archive.game = progress
+            var demo = adventure
+            _ = demo.hatch("moss", total: progress.totalSteps)
+            demo.region = "forest"; demo.selectedBuddy = "moss"; demo.buddySteps["moss"] = 8200
+            demo.inventory = ["fern": 3, "flower": 2, "lamp": 1]
+            demo.regionBuildings["forest"] = ["camp", "garden"]
+            demo.placed = [PlacedItem(kind: "flower", region: "forest", x: 0.7, y: 0.48), PlacedItem(kind: "fire", region: "forest", x: 0.4, y: 0.66)]
+            archive.adventure = demo
             storageHealthy = false // Preview is isolated from the saved journal.
             motionAuthorized = true
             if ProcessInfo.processInfo.arguments.contains("--island") { selectedTab = 4 }
@@ -123,7 +204,7 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
         if !locationAuthorized, activeWalk?.status == .recording { pauseWalk(reason: "Standortfreigabe wurde entzogen") }
     }
 
-    func becameInactive() { checkpoint() }
+    func becameInactive() { friends.stop(); checkpoint() }
 
     private func updateAuthorizationFlags() {
         motionAuthorized = CMPedometer.authorizationStatus() == .authorized
@@ -274,6 +355,7 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
         if activeWalk?.status == .recording { pauseWalk(reason: "Spaziergang beendet") }
         guard let index = archive.walks.firstIndex(where: { $0.id == id }) else { return nil }
         archive.walks[index].finish()
+        syncIsland()
         save()
         if let interval = archive.walks[index].intervals.last, let end = interval.end { queryInterval(walkID: id, intervalID: interval.id, start: interval.start, end: end) }
         refreshMotion()
@@ -350,6 +432,11 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
         var restoredGame = restored.game ?? IslandProgress()
         restoredGame.sync(days: restored.days, goal: restored.preferences.dailyGoal)
         restored.game = restoredGame
+        if var adventure = restored.adventure {
+            adventure.deviceID = UUID().uuidString
+            if adventure.team != nil { adventure.team?.baseline = restoredGame.totalSteps; adventure.team?.contributions[adventure.deviceID] = 0 }
+            restored.adventure = adventure
+        }
         for index in restored.walks.indices where restored.walks[index].status == .recording { restored.walks[index].pause(at: restored.walks[index].checkpoint, reason: "Aus Backup wiederhergestellt") }
         guard let persistence else { throw UserError.storageUnavailable }
         try persistence.save(restored)

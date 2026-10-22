@@ -77,3 +77,56 @@ let walkMission = island.missions(on: start, walks: [eligible])[2]
 expect(island.claim(walkMission.id, on: start, walks: [eligible]), "Gespeicherte Runde ab fünf Minuten belohnen")
 expect(!island.claim(walkMission.id, on: start, walks: [eligible]), "Runde nicht erneut belohnen")
 print("Spieltests bestanden: Migration, Guthaben, idempotente Schritte, Missionen, Käufe und Backups.")
+
+var adventure = AdventureProgress()
+adventure.sync(total: 6000)
+expect(adventure.buddySteps["lumi"] == 6000, "Anfangsschritte zählen zu Lumi")
+adventure.sync(total: 6000)
+expect(adventure.buddySteps["lumi"] == 6000, "Begleiter-Erfahrung nicht doppelt vergeben")
+expect(adventure.availableFinds(total: 6000) == 3, "Fundstücke aus Gesamtschritten")
+expect(adventure.openFind(total: 6000) == 0, "Erster Fund enthält Dekoration")
+_ = adventure.openFind(total: 6000); _ = adventure.openFind(total: 6000)
+expect(adventure.openFind(total: 6000) == nil, "Rucksack kann nicht zweimal geöffnet werden")
+expect(adventure.hatch("moss", total: 6000), "Ei bei Schrittgrenze ausbrüten")
+expect(!adventure.hatch("nova", total: 6000), "Gesperrten Begleiter nicht ausbrüten")
+expect(!adventure.hatch("moss", total: 6000), "Ei nur einmal ausbrüten")
+adventure.selectedBuddy = "moss"
+adventure.sync(total: 7000)
+expect(adventure.buddySteps["moss"] == 1000 && adventure.buddySteps["lumi"] == 6000, "Nur aktiver Begleiter erhält neue Schritte")
+expect(adventure.claimChapter("arrival", total: 7000, walks: 0), "Geschichte und Andenken freischalten")
+expect(!adventure.claimChapter("arrival", total: 7000, walks: 0), "Geschichte nur einmal belohnen")
+expect(!adventure.claimChapter("cave", total: 20000, walks: 5), "Geschichten-Reihenfolge einhalten")
+expect(adventure.startExpedition(target: 1000, total: 7000, now: start), "Expedition startet mit Basiswert")
+expect(!adventure.startExpedition(target: 6000, total: 7000, now: start), "Aktive Expedition nicht ersetzen")
+expect(adventure.claimExpedition(total: 7999, now: start.addingTimeInterval(1)) == nil, "Expedition erst am Ziel belohnen")
+adventure.sync(total: 8000)
+expect(adventure.claimExpedition(total: 8000, now: start.addingTimeInterval(2)) == 10, "Expeditionsbonus korrekt")
+expect(adventure.claimExpedition(total: 8000, now: start.addingTimeInterval(3)) == nil, "Expeditionsbonus nur einmal")
+adventure.inventory["fern"] = 1
+expect(adventure.place("fern"), "Inventar wird auf Insel platziert")
+expect(!adventure.place("fern"), "Keine Gegenstände duplizieren")
+let placedID = adventure.placed[0].id
+adventure.remove(placedID); adventure.remove(placedID)
+expect(adventure.inventory["fern"] == 1 && adventure.placed.isEmpty, "Einpacken gibt Gegenstand genau einmal zurück")
+var team = TeamProject(code: "ABCD2345", baseline: 8000, contributions: [adventure.deviceID: 0])
+let other = UUID().uuidString
+team.merge([other: 1200, adventure.deviceID: 999999], localID: adventure.deviceID)
+team.merge([other: 500], localID: adventure.deviceID)
+expect(team.total == 1200, "Team-Abgleich: Maximalwerte statt Doppelzählung; eigener Beitrag geschützt")
+adventure.team = team
+adventure.sync(total: 9000)
+expect(adventure.team?.total == 2200, "Nur Schritte seit Team-Beitritt teilen")
+expect(adventure.isValid, "Neuer Spielstand validiert")
+var invalidAdventure = adventure
+invalidAdventure.placed = [PlacedItem(kind: "fern", region: "invalid", x: 0.5, y: 0.5)]
+expect(!invalidAdventure.isValid, "Unbekannte Regionen im Backup abweisen")
+invalidAdventure = adventure; invalidAdventure.positions["home/camp"] = [Double.infinity, 0.5]
+expect(!invalidAdventure.isValid, "Ungültige Layoutkoordinaten abweisen")
+gameArchive.adventure = adventure
+let fullDecoded = try JSONDecoder().decode(Archive.self, from: encoder.encode(gameArchive))
+expect(fullDecoded.adventure == adventure, "Abenteuer-Backup enthält Inventar, Layout, Eier, Team und Expedition")
+_ = try fullDecoded.validated()
+expect(gameDecoded.adventure == nil, "Version-2-Backup ohne Abenteuer bleibt lesbar")
+let week = WeeklyStory(days: [DaySteps(date: start, steps: 6000), DaySteps(date: start.addingTimeInterval(-10 * 86400), steps: 9000)], walks: [eligible], now: start)
+expect(week.steps == 6000 && week.walks == 1, "Wochenrückblick filtert nach Zeitraum")
+print("Abenteuertests bestanden: Fundstücke, Inventar, Begleiter, Geschichten, Expeditionen, Team-Merge, Migration und Rückblick.")

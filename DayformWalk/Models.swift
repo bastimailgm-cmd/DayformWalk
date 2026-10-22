@@ -120,9 +120,11 @@ struct Archive: Codable {
     var walks: [Walk] = []
     var days: [DaySteps] = []
     var game: IslandProgress?
+    var adventure: AdventureProgress?
 
     func validated() throws -> Archive {
         if let game, !game.isValid { throw ValidationError.invalid }
+        if let adventure, !adventure.isValid { throw ValidationError.invalid }
         guard version == 1, (500...100_000).contains(preferences.dailyGoal), walks.count <= 10_000, Set(walks.map(\.id)).count == walks.count, walks.filter({ $0.status != .finished }).count <= 1 else { throw ValidationError.invalid }
         for walk in walks {
             guard walk.intervals.count <= 10_000, walk.segments.count <= 10_000, walk.points.count <= 200_000, walk.startedAt.timeIntervalSince1970.isFinite else { throw ValidationError.invalid }

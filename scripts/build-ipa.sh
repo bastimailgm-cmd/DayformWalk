@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p build
 xcodebuild -version
-swiftc DayformWalk/Models.swift Tests/main.swift -o build/model-tests
+swiftc DayformWalk/Models.swift DayformWalk/AdventureModels.swift Tests/main.swift -o build/model-tests
 build/model-tests
 xcodebuild -project DayformWalk.xcodeproj -scheme DayformWalk -configuration Release \
   -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/DerivedData \
