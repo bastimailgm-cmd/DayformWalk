@@ -1,5 +1,16 @@
 import SwiftUI
 
+struct AdventureActionStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var enabled
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 14).padding(.vertical, 11)
+            .foregroundStyle(Color.walkPaper)
+            .background(Color.walkGreen.gradient, in: RoundedRectangle(cornerRadius: 12))
+            .opacity(enabled ? (configuration.isPressed ? 0.8 : 1) : 0.4)
+    }
+}
+
 struct AdventureEntryView: View {
     var body: some View {
         #if DEBUG
@@ -24,7 +35,7 @@ struct AdventureHomeView: View {
                 }
                 LivingIslandView(editing: false)
                 HStack {
-                    NavigationLink { IslandEditorView() } label: { Label("Gestalten", systemImage: "paintbrush.pointed.fill").frame(maxWidth: .infinity) }.buttonStyle(.borderedProminent)
+                    NavigationLink { IslandEditorView() } label: { Label("Gestalten", systemImage: "paintbrush.pointed.fill").frame(maxWidth: .infinity) }.buttonStyle(AdventureActionStyle())
                     NavigationLink { RegionView() } label: { Label("Reisen", systemImage: "map.fill").frame(maxWidth: .infinity) }.buttonStyle(.bordered)
                 }
                 Panel {
@@ -202,7 +213,7 @@ struct IslandEditorView: View {
                     Picker("Stimmung", selection: Binding(get: { model.adventure.weather }, set: { model.setAtmosphere($0) })) { Text("Klar").tag("clear"); Text("Regen").tag("rain"); Text("Nebel").tag("mist"); Text("Schnee").tag("snow") }.pickerStyle(.segmented)
                     Text("Eine frei gewählte Spielstimmung. Tag und Nacht richten sich nach der Uhrzeit auf deinem iPhone.").font(.caption).foregroundStyle(.secondary)
                 }
-                NavigationLink { BackpackView() } label: { Label("Inventar und Dekorationen öffnen", systemImage: "backpack.fill") }.buttonStyle(.borderedProminent)
+                NavigationLink { BackpackView() } label: { Label("Inventar und Dekorationen öffnen", systemImage: "backpack.fill") }.buttonStyle(AdventureActionStyle())
                 Text("Orte ausbauen").font(.title3.bold())
                 ForEach(Array(IslandBuilding.all.enumerated()), id: \.element.id) { index, building in RegionBuildingCard(building: building, index: index) }
                 let decorations = model.adventure.placed.filter { $0.region == model.adventure.region }
@@ -241,7 +252,7 @@ struct RegionView: View {
                     Panel {
                         HStack { Image(systemName: region.symbol).font(.largeTitle).foregroundStyle(Color.walkGreen); VStack(alignment: .leading, spacing: 5) { Text(region.name).font(.title3.bold()); Text(region.subtitle).font(.caption).foregroundStyle(.secondary) } }
                         ProgressView(value: min(1, Double(model.island.totalSteps) / Double(max(1, region.steps)))).tint(.walkGreen)
-                        if model.island.totalSteps >= region.steps { Button(model.adventure.region == region.id ? "Du bist hier" : "Hierhin reisen") { model.chooseRegion(region.id); dismiss() }.buttonStyle(.borderedProminent).disabled(model.adventure.region == region.id) }
+                        if model.island.totalSteps >= region.steps { Button(model.adventure.region == region.id ? "Du bist hier" : "Hierhin reisen") { model.chooseRegion(region.id); dismiss() }.buttonStyle(AdventureActionStyle()).disabled(model.adventure.region == region.id) }
                         else { Text("Noch \((region.steps - model.island.totalSteps).formatted()) Schritte bis zur Entdeckung").font(.caption).foregroundStyle(.secondary) }
                     }
                 }
@@ -269,7 +280,7 @@ struct BackpackView: View {
                     Panel {
                         HStack { Image(systemName: item.symbol).font(.title).foregroundStyle(Color.walkGreen).frame(width: 42); VStack(alignment: .leading, spacing: 6) { Text(item.name).font(.headline); Text("\(model.adventure.inventory[item.id, default: 0]) im Rucksack").font(.caption).foregroundStyle(.secondary) }; Spacer() }
                         HStack {
-                            Button("Platzieren") { model.placeDecoration(item.id) }.buttonStyle(.borderedProminent).disabled(model.adventure.inventory[item.id, default: 0] == 0 || model.adventure.placed.count >= 200)
+                            Button("Platzieren") { model.placeDecoration(item.id) }.buttonStyle(AdventureActionStyle()).disabled(model.adventure.inventory[item.id, default: 0] == 0 || model.adventure.placed.count >= 200)
                             Button("Kaufen · \(item.cost) ✦") { model.buyDecoration(item.id) }.buttonStyle(.bordered).disabled(model.island.shells < item.cost)
                         }.font(.caption.bold())
                     }
@@ -298,7 +309,7 @@ struct BuddyCollectionView: View {
                             VStack(alignment: .leading, spacing: 7) { Text(buddy.name).font(.title3.bold()); Text(buddy.trait).font(.caption).foregroundStyle(.secondary); Text(owned ? "Level \(1 + steps / 5000) · \(steps.formatted()) gemeinsame Schritte" : "Schlüpft bei \(buddy.hatchAt.formatted()) Gesamtschritten").font(.caption2).foregroundStyle(Color.walkGreen) }
                         }
                         if owned { Button(model.buddy.id == buddy.id ? "Geht mit dir" : "Als Begleiter wählen") { model.chooseBuddy(buddy.id) }.buttonStyle(.bordered).disabled(model.buddy.id == buddy.id) }
-                        else { ProgressView(value: min(1, Double(model.island.totalSteps) / Double(buddy.hatchAt))).tint(.walkGreen); Button("Ei ausbrüten") { withAnimation { model.hatchBuddy(buddy.id) } }.buttonStyle(.borderedProminent).disabled(model.island.totalSteps < buddy.hatchAt) }
+                        else { ProgressView(value: min(1, Double(model.island.totalSteps) / Double(buddy.hatchAt))).tint(.walkGreen); Button("Ei ausbrüten") { withAnimation { model.hatchBuddy(buddy.id) } }.buttonStyle(AdventureActionStyle()).disabled(model.island.totalSteps < buddy.hatchAt) }
                     }
                 }
             }.padding(22)
@@ -359,7 +370,7 @@ struct StorybookView: View {
                         if claimed || (next && ready) {
                             Text(chapter.text).font(.subheadline).lineSpacing(6).foregroundStyle(.secondary)
                             Text("Andenken: \(WorldItem.item(chapter.gift)?.name ?? "Fundstück")").font(.caption).foregroundStyle(Color.walkLime)
-                            if !claimed { Button("Kapitel entdecken & Andenken sammeln") { model.claimChapter(chapter.id) }.font(.caption.bold()).buttonStyle(.borderedProminent) }
+                            if !claimed { Button("Kapitel entdecken & Andenken sammeln") { model.claimChapter(chapter.id) }.font(.caption.bold()).buttonStyle(AdventureActionStyle()) }
                         } else {
                             Text("\(min(model.island.totalSteps, chapter.steps).formatted()) / \(chapter.steps.formatted()) Schritte · \(min(model.completedWalks.count, chapter.walks)) / \(chapter.walks) Spaziergänge").font(.caption).foregroundStyle(.secondary)
                             if !next { Text("Entdecke zuerst das vorherige Kapitel.").font(.caption2).foregroundStyle(.secondary) }
@@ -427,7 +438,7 @@ struct TeamView: View {
                         ProgressView(value: min(1, Double(team.total) / Double(TeamProject.target))).tint(.walkGreen)
                         Text("\(team.total.formatted()) / 50.000 gemeinsame Schritte").font(.headline)
                         Text("Dein Beitrag: \(team.contributions[model.adventure.deviceID, default: 0].formatted()) Schritte seit dem Beitritt · \(team.contributions.count) Mitglieder gespeichert").font(.caption).foregroundStyle(.secondary)
-                        if team.total >= TeamProject.target { Button(team.claimed ? "Leuchtturm fertig ✓" : "Leuchtturm vollenden · +100 ✦ & Laterne") { model.claimTeam() }.buttonStyle(.borderedProminent).disabled(team.claimed) }
+                        if team.total >= TeamProject.target { Button(team.claimed ? "Leuchtturm fertig ✓" : "Leuchtturm vollenden · +100 ✦ & Laterne") { model.claimTeam() }.buttonStyle(AdventureActionStyle()).disabled(team.claimed) }
                     }
                     FriendsConnectionView(sync: model.friends)
                     Button("Projekt verlassen", role: .destructive) { leave = true }.font(.caption)
