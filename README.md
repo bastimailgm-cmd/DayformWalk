@@ -1,8 +1,41 @@
 # Dayform Walk – native iPhone-App
 
+## Version 4.0: Deine Umgebung wird zum Abenteuer
+
+Im neuen Tab **Karte** findest du echte Apple-Maps-Ausflugsorte und ergänzende OpenStreetMap-Dorfziele mit berechneten Fußrouten. Die App fragt keine beliebigen KI-Koordinaten ab. In kleinen Dörfern kann die Kartenabdeckung dünn sein; dann meldet die App fehlende Ziele, statt welche zu erfinden. Apple Maps liefert keine Garantie für öffentlichen Zugang, Öffnungszeiten oder aktuelle Wegsperrungen. Gebäude müssen nicht betreten werden. Ziele lassen sich ausblenden; dadurch entfallen nur betroffene aktive Aufgaben, bereits verdiente Funde bleiben.
+
+1. **Fundstellen:** Parks, Naturorte, Strände, Bibliotheken und Museen im Umkreis von 1,8 km. Bei wenigen Treffern kommen OpenStreetMap-Sitzbänke, Unterstände, Trinkwasserstellen, Aussichts-, Picknick- und Infopunkte hinzu. Explizite private oder gesperrte Ziele werden ausgeschlossen; fehlende Zugangsdaten sind keine Zutrittsgarantie. Bis zu acht Ziele erhalten nach einer Apple-Fußroutenberechnung virtuelle Spiel-Fundarten. Materialien werden nicht real vor Ort entnommen.
+2. **10/20/40-Minuten-Runden:** Bis zu drei Stationen mit tatsächlichen Fußrouten und Rückweg. Die Wegezeit umfasst die gesamte Route, ohne Aufenthalte. Zu lange Runden verlieren letzte Stopps, bis das Budget passt. Wenn nichts passt, erscheint ein Fehler. Der Rückweg wird angezeigt, für den Bonus genügt der Besuch aller Stopps.
+3. **Schatzkarten:** Vier verschiedene Ortsstempel ergeben je eine Schatzkarte: +60 Muscheln und eine platzierbare Sternenlaterne. Jeder Schatz wird einmal abgeholt.
+4. **Begleiter-Spuren:** Nach drei, sechs und zehn verschiedenen Orten werden Moos, Perla und Nova freischaltbar. Bereits vorhandene Begleiter bringen stattdessen 20 Muscheln.
+5. **Spielmaterialien:** Jeder Fund gibt zwei Samen, Holz, Steine oder Muschelfunde sowie fünf Spiel-Muscheln. Strand → Muschelfunde, Kulturort → Steine, Nationalpark → Holz. Andere Parks werden stabil zwischen Samen und Holz aufgeteilt. Sitzbänke und Unterstände geben Holz, Trinkwasserstellen Muschelfunde, Aussichtspunkte Steine und sonstige Dorfziele Samen.
+6. **Entdeckerpass:** Ein dauerhafter Stempel pro unterschiedlichem Ort, mit Datum. Tägliche Wiederholungsbesuche geben Material; sie erzeugen keine mehrfachen Passstempel.
+7. **Lieferungen:** Vor Ort an einer Fundstelle abholen. Die App fragt den aktuellen Core-Motion-Stand ab; erst neue Schritte seit Abholung zählen. Am Ziel mit frischem GPS und mindestens der erforderlichen Schrittzahl abgeben: +30 Muscheln und zwei Holz. Abbruch ist kostenlos. Lieferungen sind höchstens 24 Stunden nach Routenprüfung einlösbar; danach erneut planen.
+8. **Bauprojekte:** Gewächshaus, Hafen und Himmelsatelier verbrauchen Materialrezepte, geben einmalig Muscheln und erscheinen als verschiebbare Wahrzeichen auf den Inseln.
+9. **Überraschungsfunde:** Ein weiterer vorhandener Ort außerhalb der aktiven Runde, höchstens 350 m Luftlinie bzw. 500 m Fußweg entfernt. Angezeigte Zusatzzeit umfasst Hin- und Rückweg vom Suchpunkt. Optional, ohne Countdown; ein Besuch gibt zehn Extra-Muscheln. Der Zusatzweg ist nicht Teil des ursprünglichen Rundenbudgets.
+10. **Groq-Abenteuerplaner:** Wunschtext eingeben und ausdrücklich eine KI-Anfrage starten. Groq darf ausschließlich anonyme IDs bereits gefundener Ziele auswählen. Koordinaten und Ortsnamen bleiben lokal. Die App prüft die ausgewählte Runde danach erneut mit Apple-Fußrouten. KI-Geschichten sind keine Navigationsanweisungen. Bei Fehlern bleibt der lokale Planer nutzbar.
+
+### Groq einrichten und Datenfluss
+
+Unter **Karte → Funkeln-Symbol → Groq & Datenschutz** einen neu erzeugten Key speichern. Ein im Chat veröffentlichter Key sollte in der [Groq-Konsole](https://console.groq.com/keys) widerrufen werden. Die ausgelieferte App enthält keinen Benutzer-Key. Speicherung per iOS Keychain (`WhenUnlockedThisDeviceOnly`), außerhalb von Quellcode, Journal, JSON-Backups und Website. Der Modellname ist separat änderbar; Standard `openai/gpt-oss-20b`. Das gewählte Modell muss [strikte strukturierte Ausgaben](https://console.groq.com/docs/structured-outputs) unterstützen. Groq-Limits und Modellverfügbarkeit hängen vom Konto und Anbieter ab.
+
+Bei einer KI-Anfrage erhält Groq Wunschtext, Zeitbudget und anonyme Zielkennungen mit Spiel-Fundarten und ungefähren Gehzeiten. Keine Namen, Koordinaten, Schritt- oder Körperdaten werden automatisch beigefügt. Persönliche Daten im Wunschtext werden allerdings mitgesendet. Apple Maps erhält für die Umgebungssuche und Routenberechnung den Standort und die Wegpunkte. Bei weniger als vier Apple-Treffern erhält der öffentliche Overpass-Dienst den auf fünf Nachkommastellen begrenzten Suchmittelpunkt. Kartendaten: [© OpenStreetMap-Mitwirkende, ODbL](https://www.openstreetmap.org/copyright). Keine eigene Standort-Cloud. Lokale Ortsstempel, Aufgaben und Routen sind Teil des JSON-Backups. Der Key ist kein Backup-Bestandteil.
+
+### GPS-Grenzen und Verhalten
+
+Ein Fund benötigt höchstens 55 m Abstand, GPS-Genauigkeit bis 35 m, ein höchstens 20 Sekunden altes Signal, Geschwindigkeit bis 4,5 m/s und eine höchstens 24 Stunden alte Routenprüfung. Pro Ort gibt es täglich nur einen Fund. Das soll versehentliche Fern-Funde und doppelte Auszahlungen verhindern; es ist kein manipulationssicheres Wettbewerbssystem. Alle Belohnungen sind virtuelle Spielwerte ohne Geldwert. Karten-GPS läuft nur bei geöffneter Karte/Sammlung. Für Hintergrund-GPS explizit einen Spaziergang starten; passives Tageszählen verwendet weiterhin Core Motion. Die Suche wird bei gleicher Umgebung zwei Minuten zwischengespeichert.
+
+### Update ohne Datenverlust
+
+**Profil → Einstellungen & Backup → JSON sichern**, dann `DayformWalk-4.0.ipa` in AltStore Classic mit derselben Apple-ID über die bestehende App installieren. App-ID bleibt `app.dayform.walk.native`. Vorhandene Backups ohne Kartenfortschritt sind weiterhin lesbar. Nicht vor dem Update deinstallieren. Alle sieben Tage in AltStore erneuern.
+
+### Prüfung und verbleibende Gerätetests
+
+Cloud-Build und Modelltests prüfen Kompilierung, GPS-Grenzen, einmalige Belohnungen, Ortsstempel, Rezepte, Rundenbudget, Lieferungen, KI-ID-Validierung und Backup-Migration. Debug-Simulatorbilder verwenden ausdrücklich markierte Beispieldaten; diese existieren im Release-Build nicht. Reale GPS-Suche, Check-ins, passive Schritte, Hintergrundaufzeichnung und Mehrgeräteverbindungen müssen auf echten iPhones geprüft werden. Eine Live-Groq-Anfrage mit einem gültigen neuen Key bleibt ebenfalls ein Gerätetest; der veröffentlichte Key wurde nicht verwendet.
+
 ## Version 3.0: Die lebendige Abenteuerwelt
 
-Öffne **Insel** für den neuen Abenteuer-Hub. Alle Funktionen kommen ohne API-Key und ohne bezahltes Apple-Developer-Abo aus.
+Öffne **Insel** für den neuen Abenteuer-Hub. Die bisherigen Insel-Funktionen kommen ohne API-Key und ohne bezahltes Apple-Developer-Abo aus.
 
 - **Rucksack:** Alle 2.000 Gesamtschritte entsteht ein Fund. Öffnen bringt eine Dekoration oder acht Muscheln. Fundnummern werden gespeichert; identische Schrittupdates erzeugen keine doppelten Funde. Historisch gespeicherte Schritte zählen mit.
 - **Vier Gebiete:** Lumibucht (ab Beginn), Nebelwald (20.000), Korallenbucht (60.000), Sternengipfel (120.000 Schritte). Jedes Gebiet hat fünf baubare Orte. Außerhalb der Lumibucht kosten die Orte das Doppelte. Es gibt keine Käufe mit echtem Geld.
@@ -41,7 +74,7 @@ Neue dunkle SwiftUI-Oberfläche mit nativen Material-Karten, mintfarbenem Fortsc
 
 Die Simulator-Prüfung nutzt nur im Debug-Build ausdrücklich gestartete Vorschau-Daten (`--preview`, optional `--island`). Der ausgelieferte Release-Build enthält diesen Modus nicht. Simulatorbilder sind Design-Vorschauen mit Beispieldaten und kein Messnachweis.
 
-Deutschsprachige SwiftUI-App für iPhone ab iOS 17. System-Schritte aus Apple Core Motion, GPS-Spaziergänge mit Hintergrundaufzeichnung, Apple-Maps-Routen, Pause/Fortsetzen/Beenden, aktive Zeit, Strecke, Tempo, Sieben-Tage-Verlauf, Notizen, GPX-Export und JSON-Backup. Kein API-Key, kein HealthKit-Entitlement, kein eigenes Backend.
+Deutschsprachige SwiftUI-App für iPhone ab iOS 17. System-Schritte aus Apple Core Motion, GPS-Spaziergänge mit Hintergrundaufzeichnung, Apple-Maps-Routen, Pause/Fortsetzen/Beenden, aktive Zeit, Strecke, Tempo, Sieben-Tage-Verlauf, Notizen, GPX-Export und JSON-Backup. Ein API-Key ist nur für die optionale Groq-Funktion nötig. Kein HealthKit-Entitlement, kein eigenes Backend.
 
 ## Windows + iPhone: der Installationsweg
 

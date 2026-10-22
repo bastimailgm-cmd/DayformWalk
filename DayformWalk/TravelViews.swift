@@ -22,6 +22,13 @@ struct TravelMapView: View {
             return aPreferred != bPreferred ? aPreferred : a.walkingSeconds < b.walkingSeconds
         }
     }
+    private var mapPlaces: [TravelPlace] {
+        var places = candidates
+        var active = model.travel.plan?.stops ?? []
+        if let delivery = model.travel.delivery, !delivery.delivered { active += [delivery.pickup, delivery.destination] }
+        for place in active where !places.contains(where: { $0.id == place.id }) && !model.travel.blocked.contains(place.id) { places.append(place) }
+        return places
+    }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -38,7 +45,8 @@ struct TravelMapView: View {
                 if !candidates.isEmpty { placesList }
                 Text(model.travel.lastReward).font(.callout).foregroundStyle(Color.walkGreen).padding(.vertical, 6).accessibilityAddTraits(.updatesFrequently)
                 Text("Spiel-Fundstücke sind virtuell. Karten und Wege können veraltet sein. Bleibe auf zugänglichen öffentlichen Wegen; du musst keine Gebäude betreten. Unpassende Ziele kannst du ohne Verlust deiner bisherigen Funde ausblenden.").font(.caption).foregroundStyle(.secondary)
-                Text("Standort und Fußrouten werden bei der Suche an Apple Maps übermittelt. Gespeicherte Ziele, Ortsstempel und Routen liegen lokal und sind in deinem JSON-Backup enthalten.").font(.caption).foregroundStyle(.secondary)
+                Text("Standort und Wegpunkte gehen bei der Suche an Apple Maps; bei wenigen Treffern geht der Suchmittelpunkt zusätzlich an den OpenStreetMap-Overpass-Dienst. Gespeicherte Ziele, Ortsstempel und Routen liegen lokal und sind in deinem JSON-Backup enthalten.").font(.caption).foregroundStyle(.secondary)
+                Link("Weitere Ziele: © OpenStreetMap-Mitwirkende · ODbL", destination: URL(string: "https://www.openstreetmap.org/copyright")!).font(.caption)
             }.padding(20)
         }.background(Color.walkPaper).navigationTitle("Entdecken").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .topBarTrailing) { NavigationLink { GroqSettingsView() } label: { Image(systemName: "sparkles") }.accessibilityLabel("KI-Einstellungen") } }
@@ -56,7 +64,7 @@ struct TravelMapView: View {
         ZStack(alignment: .bottomLeading) {
             Map(position: $camera) {
                 UserAnnotation()
-                ForEach(candidates) { place in
+                ForEach(mapPlaces) { place in
                     Annotation(place.name, coordinate: place.coordinate.cl) {
                         Button { explorer.selected = place } label: {
                             Image(systemName: model.travel.collected(place.id, date: model.now) ? "checkmark" : place.material.symbol)
@@ -145,7 +153,8 @@ struct TravelMapView: View {
             Eyebrow(text: "FREIWILLIGER BONUSFUND")
             Text(place.name).font(.headline)
             Text("+10 Extra-Muscheln bei deinem nächsten Fund hier. Keine Eile, kein Countdown.").font(.callout)
-            if let leg = explorer.surpriseLeg { Text("ca. \(Int(ceil(leg.seconds * 2 / 60))) Min für Hin- und Rückweg vom letzten Suchpunkt; kein Abzug vom Rundenbudget.").font(.caption).foregroundStyle(.secondary) }
+            if let leg = explorer.surpriseLeg { Text("ca. \(Int(ceil(leg.seconds / 60))) Min für Hin- und Rückweg vom letzten Suchpunkt; kein Abzug vom Rundenbudget.").font(.caption).foregroundStyle(.secondary) }
+            else { Text("Zusatzzeit nach dem nächsten Suchen erneut verfügbar. Du kannst den Fund jederzeit überspringen.").font(.caption).foregroundStyle(.secondary) }
             HStack { Button("Auf der Karte zeigen") { explorer.selected = place }; Spacer(); Button("Überspringen") { model.changeTravel { travel, _, _ in travel.surpriseID = nil }; explorer.surpriseLeg = nil } }
         }
     }
@@ -184,8 +193,9 @@ struct TravelMapView: View {
         guard let place = eligible.first, origin.distance(to: place.coordinate) <= 350 else { explorer.error = "Gerade liegt kein zusätzlicher Fund in deiner Nähe. Es wurde kein Ziel erfunden."; return }
         explorer.run {
             let route = try await TravelMapService.leg(from: origin, to: place.coordinate)
+            let returnRoute = try await TravelMapService.leg(from: place.coordinate, to: origin)
             guard route.meters <= 500 else { throw TravelError.noRoute }
-            try Task.checkCancellation(); explorer.surpriseLeg = route
+            try Task.checkCancellation(); explorer.surpriseLeg = TravelLeg(points: route.points + returnRoute.points, meters: route.meters + returnRoute.meters, seconds: route.seconds + returnRoute.seconds)
             model.changeTravel { travel, _, _ in travel.surpriseID = place.id }
         }
     }
@@ -286,7 +296,7 @@ struct GroqSettingsView: View {
             }
             Section("Was verlässt dein iPhone?") {
                 Text("Nur nach deinem Tippen auf KI-Abenteuer erstellen: dein Wunschtext, Gehzeitbudget sowie anonyme Zielkennungen mit Spiel-Fundarten und Gehzeiten. Keine Koordinaten, Ortsnamen, Körperdaten oder Schrittverläufe. Schreibe keine persönlichen Angaben in den Wunschtext.")
-                Text("Der API-Key wird nur im Authorization-Header direkt an Groq gesendet. Er steht weder im App-Quellcode noch im JSON-Backup. Ortsvorschläge und Fußrouten kommen von Apple Maps. Die KI kann keine eigenen Koordinaten hinzufügen.")
+                Text("Der API-Key wird nur im Authorization-Header direkt an Groq gesendet. Er steht weder im App-Quellcode noch im JSON-Backup. Ortsvorschläge kommen von Apple Maps und ergänzend OpenStreetMap; Fußrouten von Apple Maps. Die KI kann keine eigenen Koordinaten hinzufügen.")
                 Text("Ein im Chat veröffentlichter Key sollte bei Groq widerrufen werden. Hier bitte einen neu erzeugten Key eingeben.")
                 Link("Groq-Konsole öffnen", destination: URL(string: "https://console.groq.com/keys")!)
                 Link("Unterstützte strukturierte Ausgaben", destination: URL(string: "https://console.groq.com/docs/structured-outputs")!)
