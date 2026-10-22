@@ -1,5 +1,32 @@
 # Dayform Walk – native iPhone-App
 
+## Version 3.0: Die lebendige Abenteuerwelt
+
+Öffne **Insel** für den neuen Abenteuer-Hub. Alle Funktionen kommen ohne API-Key und ohne bezahltes Apple-Developer-Abo aus.
+
+- **Rucksack:** Alle 2.000 Gesamtschritte entsteht ein Fund. Öffnen bringt eine Dekoration oder acht Muscheln. Fundnummern werden gespeichert; identische Schrittupdates erzeugen keine doppelten Funde. Historisch gespeicherte Schritte zählen mit.
+- **Vier Gebiete:** Lumibucht (ab Beginn), Nebelwald (20.000), Korallenbucht (60.000), Sternengipfel (120.000 Schritte). Jedes Gebiet hat fünf baubare Orte. Außerhalb der Lumibucht kosten die Orte das Doppelte. Es gibt keine Käufe mit echtem Geld.
+- **Gestalten:** Gebäude und Dekorationen ziehen und loslassen. Positionen und Inventar werden gespeichert. Alternativ bieten VoiceOver-Aktionen Richtungssteuerung. Dekorationen lassen sich wieder einpacken; insgesamt sind 200 gleichzeitig platzierbar.
+- **Begleiter:** Lumi, Moos, Perla und Nova. Eier werden bei 6.000, 16.000 bzw. 35.000 Gesamtschritten ausbrütbar. Der ausgewählte Begleiter erhält neue Erfahrung und entwickelt sein Aussehen auf Level 3 und 7 weiter.
+- **Geschichtenbuch:** Sechs handgeschriebene Kapitel. Schritte und gespeicherte Spaziergänge öffnen die Geschichte. Jedes Kapitel schenkt einmal ein platzierbares Andenken. Kapitel verfallen nicht.
+- **Expeditionen:** Wähle 1.000, 3.000 oder 6.000 neue Schritte für 10, 30 oder 60 zusätzliche Muscheln. GPS wird dafür nicht automatisch gestartet. Eine Expedition darf mehrere Tage dauern. Abbrechen kostet keine vorhandenen Schritte, bringt aber keine Expeditionsbelohnung. Der Schrittstand wird beim Start erneut bei Core Motion abgefragt; nachgeladene ältere Tage zählen nicht rückwirkend hinein.
+- **Lebendige Insel:** Die Uhrzeit bestimmt Tag und Nacht. Regen, Schnee, Nebel und Klar sind frei wählbare Spielstimmungen, kein echter Wetterbericht. Bewegungsreduzierung wird für Partikeleffekte respektiert. Dein Begleiter ruht nachts und reagiert auf Spaziergang bzw. Lagerfeuer.
+- **Museum:** Dauerhafte Erinnerungsstücke für Schritte, GPS-Kilometer, Runden, Ausbau und Expeditionen. Bereits gespeicherte Meilensteine bleiben beim späteren Löschen einer Route erhalten.
+- **Wochenrückblick:** Erzählung aus den letzten sieben Kalendertagen, nur mit gespeicherten Schritten und GPS-Runden. Teilen öffnet Apples Teilen-Dialog; die App versendet nichts selbst.
+- **Mit Freunden:** Ein gemeinsamer Leuchtturm für 50.000 Schritte. Eine Person gründet das Projekt, andere treten mit achtstelligem Code bei. Gezählt werden die Schritte seit Beitritt. Alle Mitglieder können die Fertigstellung einmal für 100 Muscheln und eine Laterne abholen.
+
+### Freunde verbinden – wichtig
+
+Der Freunde-Modus verwendet Apples **Multipeer Connectivity**, verschlüsselt mit `.required`. Beide iPhones müssen die App geöffnet haben und sich in der Nähe befinden. Gleiches WLAN, aktiviertes Bluetooth und freigegebenes lokales Netzwerk helfen bei der Erkennung. Auf beiden Geräten unter **Insel → Mit Freunden** den gleichen Code verwenden und die Verbindung starten. Später erneut verbinden, um neue Beiträge abzugleichen. Es werden zufällige Mitgliedskennungen und Schrittbeiträge geteilt, keine Namen, Routen oder Standortkoordinaten. Beiträge werden über Maximalwerte zusammengeführt, nicht bei jeder Übertragung erneut addiert.
+
+Dies ist ein **lokaler Direktabgleich**, kein Cloud-Fernabgleich. Beim Wechsel in den Hintergrund oder Verlassen der Freunde-Seite endet die Verbindung. Bis zu 20 Mitglieder können im gespeicherten Projekt enthalten sein; Apples Sitzung verbindet gleichzeitig maximal acht Geräte. Nach dem Verlassen eines Projekts bleiben bereits an andere Geräte übertragene Beiträge dort erhalten. Es ist ein Spiel mit vertrauten Freunden, kein manipulationsgeschützter Wettbewerb.
+
+### Update und Prüfumfang
+
+Alte Journale und Backups aus Version 1 und 2 bleiben lesbar. Alle neuen Spielstände, Inventare, Positionen und Fortschritte sind im JSON-Backup enthalten. Vor dem Update sichern und die IPA mit derselben Apple-ID über die bestehende App installieren. Nicht vorher deinstallieren.
+
+Der Mac-Build testet zusätzlich Inventar-Verbrauch/Rückgabe, einmalige Funde und Belohnungen, Eier, getrennte Begleiter-Erfahrung, Kapitel-Reihenfolge, Expeditionen, Team-Maximalwert-Abgleich, Schutz des eigenen Beitrags, historische Nachladungen und Wochenzeiträume. Simulatorbilder verwenden Debug-Beispieldaten. GPS/Schritte und der verschlüsselte Freunde-Abgleich auf zwei physischen iPhones müssen nach Installation am Gerät geprüft werden.
+
 ## Version 2.0: Deine Schritte. Deine Insel.
 
 Neue dunkle SwiftUI-Oberfläche mit nativen Material-Karten, mintfarbenem Fortschrittsring und eigener Inselansicht. Die Insel und Lumi sind direkt in SwiftUI gezeichnet, ohne externe Bilder, Netzwerkdienste oder KI-Key.
@@ -73,3 +100,4 @@ Mit einem Mac lässt sich dasselbe Projekt in Xcode öffnen oder über `bash scr
 `Tests/main.swift` prüft Distanz, GPS-Rauschen und Sprünge, getrennte Lücken, Pausenzeiten, Schrittintervalle, GPX-Export und Backup-Roundtrip. Der Build kompiliert diese Tests und anschließend die echte iPhone-App. Eine physische iPhone-Prüfung – insbesondere ein Spaziergang mit gesperrtem Bildschirm und ein Vergleich der Schrittwerte – muss nach der Installation am Gerät erfolgen. Ein erfolgreicher Cloud-Build ersetzt diese Geräteprüfung nicht.
 
 Praktischer Test: 100 Schritte mit dem iPhone in der Hosentasche gehen und mit dem aktualisierten Tageswert vergleichen; dann einen Spaziergang starten, den Bildschirm für mehrere Minuten sperren, weitergehen und nach dem Entsperren Route und Werte prüfen. Eine Pause mit Bewegung dazwischen darf die Spaziergang-Schritte nicht erhöhen, die Tages-Schritte aber schon.
+
