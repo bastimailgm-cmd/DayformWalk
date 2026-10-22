@@ -130,7 +130,13 @@ struct LivingIslandView: View {
         let beaconKey = region.id + "/team-beacon"
         let beaconPosition = model.adventure.positions[beaconKey] ?? [0.78, 0.39]
         let monument = model.adventure.team?.claimed == true ? [SceneObject(id: beaconKey, symbol: "light.beacon.max.fill", color: .orange, x: beaconPosition[0], y: beaconPosition[1])] : []
-        return buildings + items + monument
+        let projects = TravelBlueprint.all.enumerated().compactMap { index, blueprint -> SceneObject? in
+            guard model.travel.crafted.contains(blueprint.id) else { return nil }
+            let key = region.id + "/travel-" + blueprint.id
+            let position = model.adventure.positions[key] ?? [0.22 + Double(index) * 0.23, 0.43]
+            return SceneObject(id: key, symbol: blueprint.symbol, color: .walkGreen, x: position[0], y: position[1])
+        }
+        return buildings + items + monument + projects
     }
     var body: some View {
         GeometryReader { proxy in

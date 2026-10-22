@@ -38,6 +38,41 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     var preferences: Preferences { archive.preferences }
     var island: IslandProgress { archive.game ?? IslandProgress() }
     var adventure: AdventureProgress { archive.adventure ?? AdventureProgress() }
+    var travel: TravelProgress { archive.travel ?? TravelProgress() }
+    func changeTravel(_ action: (inout TravelProgress, inout AdventureProgress, inout IslandProgress) -> Void) {
+        guard storageHealthy else { return }
+        var travel = self.travel, story = adventure, game = island
+        action(&travel, &story, &game)
+        guard travel.valid, story.isValid, game.isValid else { errorMessage = "Die Kartenänderung konnte nicht gespeichert werden."; return }
+        archive.travel = travel; archive.adventure = story; archive.game = game; save()
+    }
+    func collectTravel(_ place: TravelPlace, fix: CLLocation) {
+        changeTravel { travel, _, game in
+            if let reward = travel.checkIn(place: place, location: TravelCoordinate(fix.coordinate), accuracy: fix.horizontalAccuracy, fixDate: fix.timestamp, now: Date(), speed: fix.speed) { game.bonus += reward }
+        }
+    }
+    func openTravelTreasure() { changeTravel { travel, story, game in if travel.openTreasure() { game.bonus += 60; story.inventory["lamp", default: 0] += 1 } } }
+    func claimTravelTrail(_ id: String) { changeTravel { travel, story, game in
+        guard travel.claimTrail(id) else { return }
+        if story.buddies.contains(id) { game.bonus += 20 } else { story.buddies.insert(id) }
+        travel.lastReward = "Begleiter-Spur abgeschlossen: Begleiter freigeschaltet, bei vorhandenem Begleiter +20 Muscheln."
+    } }
+    func craftTravel(_ id: String) { changeTravel { travel, _, game in if let reward = travel.craft(id) { game.bonus += reward; travel.lastReward = "Bauprojekt fertig! Dein neues Wahrzeichen steht auf deinen Inseln. +\(reward) Muscheln." } } }
+    func finishTravelPlan() { changeTravel { travel, _, game in if travel.finishPlan() { game.bonus += 20; travel.lastReward = "Alle Ziele besucht: +20 Muscheln für dein Abenteuer!" } } }
+    func beginDelivery(pickup: TravelPlace, destination: TravelPlace, route: TravelLeg, fix: CLLocation) {
+        guard TravelProgress.arrivalAllowed(place: pickup, location: TravelCoordinate(fix.coordinate), accuracy: fix.horizontalAccuracy, fixDate: fix.timestamp, now: Date(), speed: fix.speed) else { return }
+        captureStepBaseline { [weak self] days, date in
+            guard abs(date.timeIntervalSince(fix.timestamp)) <= 20 else { self?.errorMessage = "GPS wurde während der Schrittprüfung zu alt. Bitte erneut abholen."; return }
+            self?.changeTravel { travel, _, _ in
+                guard travel.delivery == nil || travel.delivery?.delivered == true, !travel.blocked.contains(pickup.id), !travel.blocked.contains(destination.id) else { return }
+                travel.delivery = TravelDelivery(pickup: pickup, destination: destination, route: route, baselineByDay: days, startedAt: date)
+                travel.lastReward = "Lieferung abgeholt. Ab jetzt zählen neue Schritte bis zum Ziel."
+            }
+        }
+    }
+    func completeDelivery(fix: CLLocation) { changeTravel { travel, _, game in
+        if travel.deliver(location: TravelCoordinate(fix.coordinate), accuracy: fix.horizontalAccuracy, fixDate: fix.timestamp, now: Date(), speed: fix.speed, days: game.stepsByDay) { game.bonus += 30; travel.stock[TravelMaterial.wood.rawValue, default: 0] += 2; travel.lastReward = "Lieferung angekommen: +30 Muscheln und +2 Holz!" }
+    } }
     var buddy: IslandBuddy { IslandBuddy.all.first { $0.id == adventure.selectedBuddy } ?? IslandBuddy.all[0] }
     var buddyLevel: Int { 1 + (adventure.buddySteps[buddy.id] ?? 0) / 5000 }
     var weeklyStory: WeeklyStory { WeeklyStory(days: archive.days, walks: archive.walks, now: now) }
@@ -65,7 +100,7 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
             guard let data else { self.errorMessage = "Der aktuelle Schrittstand konnte nicht geladen werden. Bitte versuche es noch einmal."; return }
             self.applyDay(data, date: day)
             var baseline = self.island.stepsByDay
-            baseline[IslandProgress.key(date)] = max(0, data.numberOfSteps.intValue)
+            baseline[IslandProgress.key(date)] = max(baseline[IslandProgress.key(date)] ?? 0, data.numberOfSteps.intValue)
             completion(baseline, date)
         }
     }
@@ -203,6 +238,12 @@ final class WalkModel: NSObject, ObservableObject, CLLocationManagerDelegate {
             storageHealthy = false // Preview is isolated from the saved journal.
             motionAuthorized = true
             if ProcessInfo.processInfo.arguments.contains("--island") { selectedTab = 4 }
+            if ProcessInfo.processInfo.arguments.contains("--map") {
+                selectedTab = 5
+                var travel = TravelProgress()
+                travel.places = [TravelPlace(id: "preview-park", name: "Park am Spreeufer", coordinate: TravelCoordinate(latitude: 52.516, longitude: 13.378), material: .wood, source: "Vorschau", explicitPublicAccess: false, verifiedAt: Date(), walkingMeters: 260, walkingSeconds: 240), TravelPlace(id: "preview-garden", name: "Der kleine Garten", coordinate: TravelCoordinate(latitude: 52.513, longitude: 13.382), material: .seed, source: "Vorschau", explicitPublicAccess: false, verifiedAt: Date(), walkingMeters: 340, walkingSeconds: 300)]
+                archive.travel = travel
+            }
         }
         #endif
     }

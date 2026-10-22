@@ -223,8 +223,8 @@ struct RootView: View {
             NavigationStack { TodayView() }.tabItem { Label("Heute", systemImage: "sun.max") }.tag(0)
             NavigationStack { AdventureEntryView() }.tabItem { Label("Insel", systemImage: "leaf.fill") }.tag(4)
             NavigationStack { WalksView() }.tabItem { Label("Spaziergang", systemImage: "figure.walk") }.tag(1)
-            NavigationStack { DevelopmentView() }.tabItem { Label("Verlauf", systemImage: "chart.bar.xaxis") }.tag(2)
-            NavigationStack { SettingsView() }.tabItem { Label("Einstellungen", systemImage: "slider.horizontal.3") }.tag(3)
+            NavigationStack { TravelMapView() }.tabItem { Label("Karte", systemImage: "map.fill") }.tag(5)
+            NavigationStack { TravelProfileView() }.tabItem { Label("Profil", systemImage: "person.crop.circle") }.tag(2)
         }
         .alert("Dayform Walk", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
             Button("OK", role: .cancel) { model.errorMessage = nil }

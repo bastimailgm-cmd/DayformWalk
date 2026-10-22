@@ -154,3 +154,47 @@ expect(fullTeamStory.deviceID == originalMember && fullTeamStory.team?.contribut
 var restoredStory = adventure
 restoredStory.prepareForRestore(total: 9000, days: [todayKey: 9000], now: start)
 expect(restoredStory.deviceID != adventure.deviceID && restoredStory.team?.contributions[restoredStory.deviceID] == 0 && restoredStory.isValid, "Neuer Teilnehmer nach Restore zählt vorhandene Schritte nicht erneut")
+
+
+let travelCoord = TravelCoordinate(latitude: 52, longitude: 13)
+func travelPlace(_ id: String, material: TravelMaterial = .wood) -> TravelPlace { TravelPlace(id: id, name: "Ort " + id, coordinate: travelCoord, material: material, source: "Apple Maps", explicitPublicAccess: false, verifiedAt: start, walkingMeters: 100, walkingSeconds: 90) }
+var travelGame = TravelProgress()
+let travelA = travelPlace("A")
+expect(!TravelProgress.arrivalAllowed(place: travelA, location: travelCoord, accuracy: 36, fixDate: start, now: start), "Ungenaues GPS verhindert Fund")
+expect(!TravelProgress.arrivalAllowed(place: travelA, location: travelCoord, accuracy: 5, fixDate: start.addingTimeInterval(-21), now: start), "Altes GPS verhindert Fund")
+expect(!TravelProgress.arrivalAllowed(place: travelA, location: TravelCoordinate(latitude: 53, longitude: 13), accuracy: 5, fixDate: start, now: start), "Entferntes Ziel verhindert Fund")
+expect(!TravelProgress.arrivalAllowed(place: travelA, location: travelCoord, accuracy: 5, fixDate: start, now: start, speed: 10), "Fahrgeschwindigkeit verhindert Fund")
+var oldPlace = travelA; oldPlace.verifiedAt = start.addingTimeInterval(-86401)
+expect(!TravelProgress.arrivalAllowed(place: oldPlace, location: travelCoord, accuracy: 5, fixDate: start, now: start), "Alte Routenprüfung verhindert Fund")
+expect(travelGame.checkIn(place: travelA, location: travelCoord, accuracy: 5, fixDate: start, now: start) == 5, "Fund gibt Belohnung")
+expect(travelGame.checkIn(place: travelA, location: travelCoord, accuracy: 5, fixDate: start, now: start) == nil && travelGame.stock["wood"] == 2, "Fund pro Ort und Tag einmalig")
+let tomorrow = start.addingTimeInterval(86400)
+var tomorrowA = travelA; tomorrowA.verifiedAt = tomorrow
+_ = travelGame.checkIn(place: tomorrowA, location: travelCoord, accuracy: 5, fixDate: tomorrow, now: tomorrow)
+expect(travelGame.visits.count == 1 && travelGame.stock["wood"] == 4, "Neuer Tag gibt Material aber keinen zweiten Ortsstempel")
+for id in ["B", "C", "D"] { _ = travelGame.checkIn(place: travelPlace(id), location: travelCoord, accuracy: 5, fixDate: start, now: start) }
+expect(travelGame.openTreasure() && !travelGame.openTreasure(), "Schatz je vier verschiedene Orte einmalig")
+expect(travelGame.claimTrail("moss") && !travelGame.claimTrail("moss") && !travelGame.claimTrail("nova"), "Begleiterspuren brauchen unterschiedliche Orte und zahlen einmal")
+expect(travelGame.craft("greenhouse") == nil, "Fehlendes Material verhindert Bau")
+travelGame.stock = ["seed": 6, "wood": 4, "stone": 2]
+expect(travelGame.craft("greenhouse") == 100 && travelGame.stock["wood"] == 0 && travelGame.craft("greenhouse") == nil, "Bauen verbraucht Rezept und zahlt einmal")
+let travelLeg = TravelLeg(points: [travelCoord, TravelCoordinate(latitude: 52.001, longitude: 13)], meters: 100, seconds: 90)
+travelGame.plan = TravelPlan(title: "Runde", story: "Kleine Runde", origin: travelCoord, stops: [travelA], legs: [travelLeg, travelLeg], completed: ["A"], createdAt: start, minutes: 10)
+expect(travelGame.plan!.valid && travelGame.finishPlan() && !travelGame.finishPlan(), "Rundenbonus einmalig nach allen Zielen")
+var oversizedPlan = travelGame.plan!; oversizedPlan.legs[0].seconds = 700
+expect(!oversizedPlan.valid, "Budget umfasst alle Fußwege samt Rückweg")
+travelGame.delivery = TravelDelivery(pickup: travelA, destination: travelPlace("B"), route: travelLeg, baselineByDay: [todayKey: 1000], startedAt: start)
+expect(travelGame.delivery!.steps(days: [yesterdayKey: 50000, todayKey: 1090]) == 90, "Lieferung ignoriert historische Nachladungen")
+expect(!travelGame.deliver(location: travelCoord, accuracy: 5, fixDate: start, now: start, speed: 0, days: [todayKey: 1090]), "Lieferung benötigt neue Schritte")
+expect(travelGame.deliver(location: travelCoord, accuracy: 5, fixDate: start, now: start, speed: 0, days: [todayKey: 1100]) && !travelGame.deliver(location: travelCoord, accuracy: 5, fixDate: start, now: start, speed: 0, days: [todayKey: 1200]), "Lieferung belohnt nur einmal")
+travelGame.block("A")
+expect(travelGame.plan == nil && travelGame.delivery == nil && travelGame.visits.count == 4 && travelGame.crafted.contains("greenhouse"), "Unzugängliches Ziel entfernt aktive Aufgaben und behält verdiente Funde")
+expect(travelGame.valid, "Kartenfortschritt bleibt gültig")
+var travelArchive = Archive(); travelArchive.travel = travelGame
+let travelRestored = try JSONDecoder().decode(Archive.self, from: JSONEncoder().encode(travelArchive)).validated()
+expect(travelRestored.travel == travelGame && gameDecoded.travel == nil, "Karten-Backup und Migration älterer Backups")
+let allowedAI = TravelAIStory(title: "Runde", story: "Geschichte", stopIDs: ["P1"])
+expect((try? allowedAI.validated(allowed: ["P1"])) != nil, "KI darf erlaubte IDs auswählen")
+expect((try? TravelAIStory(title: "Runde", story: "Geschichte", stopIDs: ["P2"]).validated(allowed: ["P1"])) == nil, "Erfundene KI-Ziele werden abgelehnt")
+expect((try? TravelAIStory(title: "Runde", story: "Geschichte", stopIDs: ["P1", "P1"]).validated(allowed: ["P1"])) == nil, "Doppelte KI-Ziele werden abgelehnt")
+print("Kartentests bestanden: GPS-Grenzen, Tagesfunde, Ortsstempel, Schatzkarten, Begleiterspuren, Bauprojekte, Rundenbudget, Lieferungen, KI-ID-Prüfung und Backup-Migration.")

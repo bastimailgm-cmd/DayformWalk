@@ -100,4 +100,3 @@ Mit einem Mac lässt sich dasselbe Projekt in Xcode öffnen oder über `bash scr
 `Tests/main.swift` prüft Distanz, GPS-Rauschen und Sprünge, getrennte Lücken, Pausenzeiten, Schrittintervalle, GPX-Export und Backup-Roundtrip. Der Build kompiliert diese Tests und anschließend die echte iPhone-App. Eine physische iPhone-Prüfung – insbesondere ein Spaziergang mit gesperrtem Bildschirm und ein Vergleich der Schrittwerte – muss nach der Installation am Gerät erfolgen. Ein erfolgreicher Cloud-Build ersetzt diese Geräteprüfung nicht.
 
 Praktischer Test: 100 Schritte mit dem iPhone in der Hosentasche gehen und mit dem aktualisierten Tageswert vergleichen; dann einen Spaziergang starten, den Bildschirm für mehrere Minuten sperren, weitergehen und nach dem Entsperren Route und Werte prüfen. Eine Pause mit Bewegung dazwischen darf die Spaziergang-Schritte nicht erhöhen, die Tages-Schritte aber schon.
-
