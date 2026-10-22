@@ -61,7 +61,7 @@ struct TravelMapView: View {
         }
     }
     private var map: some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: .topLeading) {
             Map(position: $camera) {
                 if explorer.userAuthorized { UserAnnotation() }
                 ForEach(mapPlaces) { place in
